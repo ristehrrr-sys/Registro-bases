@@ -15,6 +15,27 @@ st.set_page_config(
 )
 
 # ============================================================
+# OCULTAR BARRA SUPERIOR, GITHUB, SHARE Y MENÚS DE STREAMLIT
+# ============================================================
+st.markdown("""
+    <style>
+        /* Fuerza la desaparición de la barra superior, el gatito, el share y los 3 puntos */
+        header {visibility: hidden !important; display: none !important;}
+        [data-testid="stHeader"] {display: none !important;}
+        #MainMenu {visibility: hidden !important; display: none !important;}
+        .stDeployButton {display: none !important;}
+        footer {visibility: hidden !important; display: none !important;}
+        
+        /* Elimina cualquier barra de herramientas flotante */
+        [data-testid="stToolbar"] {visibility: hidden !important; display: none !important;}
+        [data-testid="stDecoration"] {visibility: hidden !important; display: none !important;}
+        
+        /* Ajusta el margen superior para que no quede un espacio en blanco */
+        .block-container {padding-top: 1rem !important;}
+    </style>
+""", unsafe_allow_html=True)
+
+# ============================================================
 # CONEXIÓN
 # Secrets necesarios:
 # SUPABASE_URL, SUPABASE_KEY, ADMIN_USER, ADMIN_PASSWORD
