@@ -70,7 +70,7 @@ DISTRITOS_PUNO = {
         "Desaguadero", "Huacullani", "Juli", "Kelluyo",
         "Pisacoma", "Pomata", "Zepita"
     ],
-    "El Collao": ["Capazo", "Ilave", "Pilcuyo", "Santa Rosa"],
+    "El Collao": ["Capazo", "Conduriri", "Ilave", "Pilcuyo", "Santa Rosa"],
     "Huancané": [
         "Cojata", "Huancané", "Huatasani", "Inchupalla",
         "Pusi", "Rosaspata", "Taraco", "Vilque Chico"
@@ -363,16 +363,36 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
 
     with tabs[1]:
         st.subheader("Crear base y cuenta del secretario general")
-        with st.form("crear_base_admin"):
-            nombre = st.text_input("Nombre de la base o comando")
-            provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS)
-            distritos = DISTRITOS_PUNO.get(provincia, [])
-            distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + sorted(distritos), disabled=not distritos)
-            usuario = st.text_input("Usuario del secretario general").strip()
-            password = st.text_input("Contraseña inicial (8 a 10 caracteres)", type="password")
-            confirmar = st.text_input("Confirmar contraseña", type="password")
-            acepta = st.checkbox("Confirmo que estoy autorizado para crear esta cuenta.")
-            crear = st.form_submit_button("Crear base")
+        st.caption("Selecciona primero la provincia. La lista de distritos se actualizará automáticamente.")
+        # Estos controles NO van dentro de st.form: Streamlit no actualiza
+        # widgets dependientes dentro de un formulario hasta pulsar enviar.
+        nombre = st.text_input("Nombre de la base o comando", key="crear_nombre_base")
+        provincia = st.selectbox(
+            "Provincia", ["Seleccionar provincia"] + PROVINCIAS,
+            key="crear_provincia_base"
+        )
+        distritos = DISTRITOS_PUNO.get(provincia, [])
+        if distritos:
+            distrito = st.selectbox(
+                "Distrito", ["Seleccionar distrito"] + sorted(distritos),
+                key=f"crear_distrito_{provincia}"
+            )
+        else:
+            distrito = "Seleccionar distrito"
+            st.selectbox("Distrito", ["Selecciona primero una provincia"], disabled=True, key="crear_distrito_vacio")
+        usuario = st.text_input("Usuario del secretario general", key="crear_usuario_base").strip()
+        mostrar_clave_nueva = st.checkbox("👁️ Mostrar contraseña inicial", key="mostrar_clave_inicial")
+        password = st.text_input(
+            "Contraseña inicial (8 a 10 caracteres)",
+            type="default" if mostrar_clave_nueva else "password",
+            key="crear_password_base"
+        )
+        confirmar = st.text_input(
+            "Confirmar contraseña", type="default" if mostrar_clave_nueva else "password",
+            key="crear_confirmar_password_base"
+        )
+        acepta = st.checkbox("Confirmo que estoy autorizado para crear esta cuenta.", key="crear_acepta_base")
+        crear = st.button("Crear base", key="crear_base_admin_btn")
         if crear:
             if not nombre.strip() or provincia not in DISTRITOS_PUNO or distrito not in distritos:
                 st.warning("Completa nombre, provincia y distrito.")
@@ -410,6 +430,36 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 elegida = opciones[seleccion]
                 activa = bool(elegida.get("activo", True))
                 st.write(f'**Integrantes asociados:** {len(cargar_integrantes(elegida["id"]))}')
+
+                st.markdown("#### Usuario y recuperación de contraseña")
+                st.write(f'**Usuario:** `{elegida.get("usuario", "")}`')
+                st.caption("Por seguridad, la contraseña anterior no se puede mostrar porque solo se guarda su hash. Si se perdió, genera una nueva contraseña temporal.")
+                clave_state = f"clave_temporal_{elegida['id']}"
+                ver_state = f"ver_clave_temporal_{elegida['id']}"
+                confirmar_reset = st.checkbox(
+                    f'Confirmo restablecer la contraseña de «{elegida["nombre_base"]}»',
+                    key=f"confirmar_reset_{elegida['id']}"
+                )
+                if st.button("Generar nueva contraseña temporal", key=f"reset_password_{elegida['id']}", disabled=not confirmar_reset):
+                    nueva_clave = secrets.token_urlsafe(9)
+                    try:
+                        supabase.table("bases_campana").update({"password_hash": crear_hash(nueva_clave)}).eq("id", elegida["id"]).execute()
+                        st.session_state[clave_state] = nueva_clave
+                        st.session_state[ver_state] = False
+                        st.success("Contraseña restablecida. Copia la nueva clave y entrégala al secretario de forma privada.")
+                    except Exception as e:
+                        error_supabase("No se pudo restablecer la contraseña.", e)
+                if clave_state in st.session_state:
+                    st.checkbox("👁️ Mostrar contraseña temporal", key=ver_state)
+                    if st.session_state.get(ver_state, False):
+                        st.code(st.session_state[clave_state])
+                    else:
+                        st.code("••••••••••••")
+                    if st.button("Ocultar y retirar clave de esta pantalla", key=f"ocultar_clave_{elegida['id']}"):
+                        st.session_state.pop(clave_state, None)
+                        st.session_state.pop(ver_state, None)
+                        st.rerun()
+
                 if activa:
                     confirmar_estado = st.checkbox(f'Confirmo desactivar «{elegida["nombre_base"]}»', key=f'desact_{elegida["id"]}')
                     if st.button("Desactivar base", disabled=not confirmar_estado):
