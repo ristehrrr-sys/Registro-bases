@@ -9,7 +9,7 @@ import pandas as pd
 from datetime import date
 
 st.set_page_config(
-    page_title="Registro de Bases y Comandos",
+    page_title="Registro de Bases/Comandos",
     page_icon="🗳️",
     layout="wide",
 )
