@@ -499,7 +499,115 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 seleccion = st.selectbox("Selecciona una base", list(opciones), key="base_admin_sel")
                 elegida = opciones[seleccion]
                 activa = bool(elegida.get("activo", True))
-                st.write(f'**Integrantes asociados:** {len(cargar_integrantes(elegida["id"]))}')
+                
+                integrantes_base_actual = cargar_integrantes(elegida["id"])
+                st.write(f'**Integrantes asociados:** {len(integrantes_base_actual)}')
+
+                # --- NUEVA SECCIÓN: EDITAR INTEGRANTE (ADMIN) ---
+                with st.expander("✏️ Corregir datos de un integrante de esta base", expanded=False):
+                    if integrantes_base_actual:
+                        opciones_editar = {
+                            f"{f.get('apellidos','')}, {f.get('nombres','')} - DNI: {f.get('dni','')}": f
+                            for f in integrantes_base_actual
+                        }
+                        seleccion_editar = st.selectbox(
+                            "Selecciona el integrante a corregir",
+                            list(opciones_editar.keys()),
+                            key=f"select_editar_integrante_admin_{elegida['id']}"
+                        )
+                        
+                        if seleccion_editar:
+                            integrante_sel = opciones_editar[seleccion_editar]
+                            
+                            edit_nombres = st.text_input("Nombres", value=integrante_sel.get("nombres", ""), key=f"edit_nom_{integrante_sel['id']}")
+                            edit_apellidos = st.text_input("Apellidos", value=integrante_sel.get("apellidos", ""), key=f"edit_ape_{integrante_sel['id']}")
+                            edit_dni = st.text_input("DNI (8 dígitos)", value=integrante_sel.get("dni", ""), key=f"edit_dni_{integrante_sel['id']}")
+                            edit_celular = st.text_input("Celular", value=integrante_sel.get("celular", "") or "", key=f"edit_cel_{integrante_sel['id']}")
+                            
+                            cargo_actual = integrante_sel.get("cargo", "")
+                            if cargo_actual in CARGOS:
+                                idx_cargo = CARGOS.index(cargo_actual)
+                                edit_cargo_sel = st.selectbox("Cargo o condición", CARGOS, index=idx_cargo, key=f"edit_cargo_sel_{integrante_sel['id']}")
+                                edit_cargo_otro = st.text_input("Especifica el cargo", value="", disabled=True, key=f"edit_cargo_otro_{integrante_sel['id']}")
+                            else:
+                                idx_cargo = CARGOS.index("Otro")
+                                edit_cargo_sel = st.selectbox("Cargo o condición", CARGOS, index=idx_cargo, key=f"edit_cargo_sel_{integrante_sel['id']}")
+                                edit_cargo_otro = st.text_input("Especifica el cargo", value=cargo_actual, key=f"edit_cargo_otro_{integrante_sel['id']}")
+                            
+                            if st.button("Guardar correcciones del integrante", type="primary", key=f"guardar_edit_int_admin_{integrante_sel['id']}"):
+                                cargo_final_edit = edit_cargo_otro.strip() if edit_cargo_sel == "Otro" else edit_cargo_sel
+                                
+                                if not edit_nombres.strip() or not edit_apellidos.strip():
+                                    st.warning("Completa nombres y apellidos.")
+                                elif not re.fullmatch(r"\d{8}", edit_dni.strip()):
+                                    st.warning("El DNI debe contener exactamente 8 dígitos.")
+                                elif edit_celular.strip() and not re.fullmatch(r"\+?\d{9,15}", edit_celular.strip()):
+                                    st.warning("Si ingresas celular, usa entre 9 y 15 dígitos; puedes incluir + al inicio.")
+                                elif edit_cargo_sel == "Otro" and not cargo_final_edit:
+                                    st.warning("Especifica el cargo o condición.")
+                                else:
+                                    existentes = supabase.table("integrantes_base").select("id").eq("base_id", elegida["id"]).eq("dni", edit_dni.strip()).neq("id", integrante_sel["id"]).limit(1).execute().data
+                                    if existentes:
+                                        st.error("Ese DNI ya está registrado por otra persona en esta base.")
+                                    else:
+                                        try:
+                                            supabase.table("integrantes_base").update({
+                                                "nombres": edit_nombres.strip(),
+                                                "apellidos": edit_apellidos.strip(),
+                                                "dni": edit_dni.strip(),
+                                                "celular": edit_celular.strip(),
+                                                "cargo": cargo_final_edit,
+                                            }).eq("id", integrante_sel["id"]).execute()
+                                            st.success("Datos del integrante actualizados correctamente.")
+                                            st.rerun()
+                                        except Exception as e:
+                                            error_supabase("No se pudieron actualizar los datos del integrante.", e)
+                    else:
+                        st.info("Esta base no tiene integrantes registrados para editar.")
+                # --- FIN EDICIÓN INTEGRANTE ---
+
+                # --- EDITAR DATOS DE LA BASE (ADMIN) ---
+                with st.expander("✏️ Editar datos de esta base", expanded=False):
+                    edit_nombre = st.text_input("Nombre de la base", value=elegida.get("nombre_base", ""), key=f"edit_nombre_{elegida['id']}")
+                    
+                    prov_actual = elegida.get("provincia", "")
+                    prov_index = PROVINCIAS.index(prov_actual) + 1 if prov_actual in PROVINCIAS else 0
+                    edit_provincia = st.selectbox(
+                        "Provincia", ["Seleccionar provincia"] + PROVINCIAS, index=prov_index, key=f"edit_prov_{elegida['id']}"
+                    )
+                    
+                    distritos_edit = DISTRITOS_PUNO.get(edit_provincia, [])
+                    dist_actual = elegida.get("distrito", "")
+                    dist_index = sorted(distritos_edit).index(dist_actual) + 1 if dist_actual in distritos_edit else 0
+                    
+                    if distritos_edit:
+                        edit_distrito = st.selectbox(
+                            "Distrito", ["Seleccionar distrito"] + sorted(distritos_edit), index=dist_index, key=f"edit_dist_{elegida['id']}"
+                        )
+                    else:
+                        edit_distrito = st.selectbox(
+                            "Distrito", ["Selecciona primero una provincia"], disabled=True, key=f"edit_dist_vacio_{elegida['id']}"
+                        )
+                        
+                    edit_direccion = st.text_input("Dirección", value=elegida.get("direccion") or "", key=f"edit_dir_{elegida['id']}")
+                    
+                    if st.button("Guardar cambios", type="primary", key=f"guardar_edit_{elegida['id']}"):
+                        if not edit_nombre.strip() or edit_provincia not in DISTRITOS_PUNO or edit_distrito not in distritos_edit:
+                            st.warning("Completa nombre, provincia y distrito correctamente.")
+                        else:
+                            try:
+                                supabase.table("bases_campana").update({
+                                    "nombre_base": edit_nombre.strip(),
+                                    "provincia": edit_provincia,
+                                    "distrito": edit_distrito,
+                                    "direccion": edit_direccion.strip()
+                                }).eq("id", elegida["id"]).execute()
+                                st.success("Datos de la base actualizados correctamente.")
+                                st.rerun()
+                            except Exception as e:
+                                error_supabase("No se pudieron actualizar los datos.", e)
+                # --- FIN EDICIÓN BASE ---
+
                 st.markdown("#### Usuario y recuperación de contraseña")
                 st.write(f'**Usuario:** `{elegida.get("usuario", "")}`')
                 st.caption("La contraseña anterior no se puede mostrar porque solo se guarda su hash. Si se perdió, genera una contraseña temporal.")
@@ -571,24 +679,19 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     key=f'eliminar_check_{elegida["id"]}'
                 )
                 
-                # Clave de sesión para mostrar el mensaje de confirmación final
                 confirmar_final_key = f"confirmar_eliminar_final_{elegida['id']}"
                 
                 if st.button("Solicitar eliminación de base", type="primary", disabled=not confirmar_check, key=f"eliminar_btn_{elegida['id']}"):
                     st.session_state[confirmar_final_key] = True
                 
-                # DOBLE CONFIRMACIÓN
                 if st.session_state.get(confirmar_final_key, False):
                     st.error(f"⚠️ ¿REALMENTE DESEAS ELIMINAR LA BASE «{elegida['nombre_base']}» Y TODOS SUS INTEGRANTES? ESTA ACCIÓN ES IRREVERSIBLE.")
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
                         if st.button("SÍ, ELIMINAR DEFINITIVAMENTE", type="primary", key=f"si_eliminar_{elegida['id']}"):
                             try:
-                                # 1. Primero eliminamos a los integrantes de esa base para evitar errores
                                 supabase.table("integrantes_base").delete().eq("base_id", elegida["id"]).execute()
-                                # 2. Luego eliminamos la base
                                 supabase.table("bases_campana").delete().eq("id", elegida["id"]).execute()
-                                
                                 st.session_state[confirmar_final_key] = False
                                 st.success(f"La base «{elegida['nombre_base']}» y todos sus integrantes han sido eliminados.")
                                 st.rerun()
@@ -962,12 +1065,21 @@ if st.session_state.base_id is not None:
         f'{st.session_state.base_provincia} / {st.session_state.base_distrito} · '
         f'Dirección: {st.session_state.base_direccion}'
     )
+    
     st.subheader("Integrantes de tu base")
     st.caption(
         "El cargo se guarda tal como lo selecciones o escribas y es propio de esta base. "
         "La misma persona puede pertenecer a otras bases con otro cargo."
     )
 
+    # Cargar integrantes una sola vez para usarlos en la tabla
+    try:
+        filas = cargar_integrantes(base_id)
+    except Exception as e:
+        filas = []
+        error_supabase("No se pudo cargar la lista de integrantes.", e)
+
+    # --- AGREGAR INTEGRANTE ---
     with st.expander("Agregar integrante", expanded=False):
         nombres = st.text_input("Nombres", key="nuevo_integrante_nombres")
         apellidos = st.text_input("Apellidos", key="nuevo_integrante_apellidos")
@@ -1024,8 +1136,8 @@ if st.session_state.base_id is not None:
                 except Exception as e:
                     error_supabase("No se pudo guardar el integrante.", e)
 
+    # --- LISTA DE INTEGRANTES ---
     try:
-        filas = cargar_integrantes(base_id)
         st.metric("Registros de integrantes de esta base", len(filas))
         busqueda = st.text_input("Buscar por nombre o DNI", key="buscar_base")
         filtrados = [
