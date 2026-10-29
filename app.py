@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 st.set_page_config(
     page_title="Registro de Bases y Comandos",
-    page_icon="🗳️",
+    page_icon="ðŸ—³ï¸",
     layout="wide",
 )
 
@@ -27,9 +27,7 @@ header, [data-testid="stHeader"], #MainMenu, .stDeployButton, footer,
 """, unsafe_allow_html=True)
 
 # ============================================================
-# CONEXIÓN SUPABASE
-# Conserva los Secrets actuales: SUPABASE_URL, SUPABASE_KEY,
-# ADMIN_USER y ADMIN_PASSWORD.
+# CONEXIÃ“N SUPABASE
 # ============================================================
 @st.cache_resource
 def conectar_supabase():
@@ -47,46 +45,46 @@ except Exception:
     st.stop()
 
 # ============================================================
-# LISTAS GEOGRÁFICAS (Puno, Perú)
+# LISTAS GEOGRÃFICAS (Puno, PerÃº)
 # ============================================================
 DISTRITOS_PUNO = {
-    "Azángaro": [
-        "Achaya", "Arapa", "Asillo", "Azángaro", "Caminaca", "Chupa",
-        "José Domingo Choquehuanca", "Muñani", "Potoni", "Samán",
-        "San Antón", "San José", "San Juan de Salinas",
+    "AzÃ¡ngaro": [
+        "Achaya", "Arapa", "Asillo", "AzÃ¡ngaro", "Caminaca", "Chupa",
+        "JosÃ© Domingo Choquehuanca", "MuÃ±ani", "Potoni", "SamÃ¡n",
+        "San AntÃ³n", "San JosÃ©", "San Juan de Salinas",
         "Santiago de Pupuja", "Tirapata"
     ],
     "Carabaya": [
         "Ajoyani", "Ayapata", "Coasa", "Corani", "Crucero", "Ituata",
-        "Macusani", "Ollachea", "San Gabán", "Usicayos"
+        "Macusani", "Ollachea", "San GabÃ¡n", "Usicayos"
     ],
     "Chucuito": [
         "Desaguadero", "Huacullani", "Juli", "Kelluyo",
         "Pisacoma", "Pomata", "Zepita"
     ],
     "El Collao": ["Capazo", "Conduriri", "Ilave", "Pilcuyo", "Santa Rosa"],
-    "Huancané": [
-        "Cojata", "Huancané", "Huatasani", "Inchupalla", "Pusi",
+    "HuancanÃ©": [
+        "Cojata", "HuancanÃ©", "Huatasani", "Inchupalla", "Pusi",
         "Rosaspata", "Taraco", "Vilque Chico"
     ],
     "Lampa": [
         "Cabanilla", "Calapuja", "Lampa", "Nicasio", "Ocuviri", "Palca",
-        "Paratía", "Pucará", "Santa Lucía", "Vilavila"
+        "ParatÃ­a", "PucarÃ¡", "Santa LucÃ­a", "Vilavila"
     ],
     "Melgar": [
-        "Antauta", "Ayaviri", "Cupi", "Llalli", "Macari", "Nuñoa",
+        "Antauta", "Ayaviri", "Cupi", "Llalli", "Macari", "NuÃ±oa",
         "Orurillo", "Santa Rosa", "Umachiri"
     ],
     "Moho": ["Conima", "Huayrapata", "Moho", "Tilali"],
     "Puno": [
-        "Acora", "Amantaní", "Atuncolla", "Capachica", "Chucuito",
-        "Coata", "Huata", "Mañazo", "Paucarcolla", "Pichacani",
-        "Platería", "Puno", "San Antonio", "Tiquillaca", "Vilque"
+        "Acora", "AmantanÃ­", "Atuncolla", "Capachica", "Chucuito",
+        "Coata", "Huata", "MaÃ±azo", "Paucarcolla", "Pichacani",
+        "PlaterÃ­a", "Puno", "San Antonio", "Tiquillaca", "Vilque"
     ],
     "San Antonio de Putina": [
         "Ananea", "Pedro Vilca Apaza", "Putina", "Quilcapuncu", "Sina"
     ],
-    "San Román": ["Cabana", "Cabanillas", "Caracoto", "Juliaca"],
+    "San RomÃ¡n": ["Cabana", "Cabanillas", "Caracoto", "Juliaca"],
     "Sandia": [
         "Alto Inambari", "Cuyocuyo", "Limbani", "Patambuco", "Phara",
         "Quiaca", "San Juan del Oro", "San Pedro de Putina Punco",
@@ -99,11 +97,10 @@ DISTRITOS_PUNO = {
 }
 PROVINCIAS = sorted(DISTRITOS_PUNO.keys())
 
-# Lista de cargos solicitada: solo estas cinco opciones.
 CARGOS = [
     "Secretario general de base",
-    "Secretario de organización",
-    "Secretario de economía",
+    "Secretario de organizaciÃ³n",
+    "Secretario de economÃ­a",
     "Militante",
     "Otro",
 ]
@@ -112,7 +109,7 @@ FILAS_POR_PAGINA = 1000
 
 
 # ============================================================
-# CONTRASEÑAS Y SESIÓN
+# CONTRASEÃ‘AS Y SESIÃ“N
 # ============================================================
 def crear_hash(password: str) -> str:
     salt = secrets.token_hex(16)
@@ -144,14 +141,14 @@ def credenciales_admin_validas(usuario: str, password: str) -> bool:
     except Exception:
         st.error(
             "Faltan ADMIN_USER o ADMIN_PASSWORD en Streamlit Secrets. "
-            "Configúralos antes de iniciar sesión como administrador."
+            "ConfigÃºralos antes de iniciar sesiÃ³n como administrador."
         )
         return False
 
 
 def limpiar_sesion():
     claves = (
-        "base_id", "base_nombre", "base_provincia", "base_distrito",
+        "base_id", "base_nombre", "base_provincia", "base_distrito", "base_direccion",
         "es_admin", "mostrar_registro", "mostrar_integrante",
         "admin_autenticado", "persona_asistencia_encontrada",
     )
@@ -161,6 +158,7 @@ def limpiar_sesion():
     st.session_state.base_nombre = ""
     st.session_state.base_provincia = ""
     st.session_state.base_distrito = ""
+    st.session_state.base_direccion = ""
     st.session_state.es_admin = False
     st.session_state.admin_autenticado = False
 
@@ -170,9 +168,10 @@ defaults = {
     "base_nombre": "",
     "base_provincia": "",
     "base_distrito": "",
+    "base_direccion": "",
     "es_admin": False,
     "admin_autenticado": False,
-    "vista_publica": "Iniciar sesión",
+    "vista_publica": "Iniciar sesiÃ³n",
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -181,8 +180,6 @@ for k, v in defaults.items():
 
 # ============================================================
 # FUNCIONES DE DATOS
-# La paginación evita quedarse solo con el primer bloque de filas
-# que devuelve la API de Supabase.
 # ============================================================
 def ejecutar_todas_las_filas(tabla, columnas, ordenar_por=None, filtros=None):
     filas = []
@@ -206,7 +203,7 @@ def cargar_bases(solo_activas=False):
     filtros = [("eq", "activo", True)] if solo_activas else []
     return ejecutar_todas_las_filas(
         "bases_campana",
-        "id,nombre_base,provincia,distrito,usuario,fecha_registro,activo",
+        "id,nombre_base,provincia,distrito,direccion,usuario,fecha_registro,activo",
         ordenar_por=("nombre_base", False),
         filtros=filtros,
     )
@@ -256,6 +253,7 @@ def excel_con_hojas(hojas):
 def df_bases(filas):
     return pd.DataFrame([{
         "Base": b.get("nombre_base", ""),
+        "DirecciÃ³n": b.get("direccion", ""),
         "Provincia": b.get("provincia", ""),
         "Distrito": b.get("distrito", ""),
         "Usuario": b.get("usuario", ""),
@@ -272,7 +270,7 @@ def df_integrantes(filas, mapa_bases=None):
         "Apellidos": f.get("apellidos", ""),
         "DNI": f.get("dni", ""),
         "Celular": f.get("celular", ""),
-        "Cargo / condición en esta base": f.get("cargo") or "",
+        "Cargo / condiciÃ³n en esta base": f.get("cargo") or "",
         "Fecha de registro": str(f.get("fecha_registro", ""))[:10],
     } for f in filas])
 
@@ -280,7 +278,7 @@ def df_integrantes(filas, mapa_bases=None):
 def error_supabase(mensaje, error=None):
     st.error(mensaje)
     st.caption(
-        "Comprueba que ejecutaste el SQL de actualización y que los Secrets "
+        "Comprueba que ejecutaste el SQL de actualizaciÃ³n y que los Secrets "
         "de Supabase son correctos."
     )
     if error:
@@ -317,7 +315,6 @@ def persona_por_dni(filas, dni, mapa_bases):
 
 
 def fecha_hora_peru(valor):
-    """Convierte el timestamp de Supabase a fecha y hora de Perú."""
     if not valor:
         return "", ""
     try:
@@ -335,8 +332,8 @@ def fecha_hora_peru(valor):
 # ============================================================
 # ENCABEZADO Y ACCESO
 # ============================================================
-st.title("🗳️ Registro de Bases y Comandos")
-st.caption("Gestión de bases, integrantes, reuniones y asistencia general")
+st.title("ðŸ—³ï¸ Registro de Bases y Comandos")
+st.caption("GestiÃ³n de bases, integrantes, reuniones y asistencia general")
 
 if st.session_state.base_id is None and not st.session_state.admin_autenticado:
     st.subheader("Acceso al sistema")
@@ -348,12 +345,12 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
     if modo == "Secretario general de base":
         with st.form("inicio_sesion_base"):
             usuario_login = st.text_input("Usuario").strip()
-            password_login = st.text_input("Contraseña", type="password")
+            password_login = st.text_input("ContraseÃ±a", type="password")
             entrar = st.form_submit_button("Ingresar", use_container_width=True)
         if entrar:
             try:
                 resultado = supabase.table("bases_campana").select(
-                    "id,nombre_base,provincia,distrito,usuario,password_hash,activo"
+                    "id,nombre_base,provincia,distrito,direccion,usuario,password_hash,activo"
                 ).eq("usuario", usuario_login).eq("activo", True).limit(1).execute()
                 if resultado.data and verificar_password(
                     password_login, resultado.data[0].get("password_hash", "")
@@ -363,15 +360,16 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
                     st.session_state.base_nombre = cuenta["nombre_base"]
                     st.session_state.base_provincia = cuenta.get("provincia") or ""
                     st.session_state.base_distrito = cuenta.get("distrito") or ""
+                    st.session_state.base_direccion = cuenta.get("direccion") or ""
                     st.rerun()
                 else:
-                    st.error("Usuario o contraseña incorrectos, o la base está desactivada.")
+                    st.error("Usuario o contraseÃ±a incorrectos, o la base estÃ¡ desactivada.")
             except Exception as e:
                 error_supabase("No se pudo comprobar el acceso.", e)
     else:
         with st.form("inicio_sesion_admin"):
             usuario_admin = st.text_input("Usuario administrador")
-            password_admin = st.text_input("Contraseña de administrador", type="password")
+            password_admin = st.text_input("ContraseÃ±a de administrador", type="password")
             entrar_admin = st.form_submit_button(
                 "Ingresar como administrador", use_container_width=True
             )
@@ -394,7 +392,7 @@ except Exception:
 # PANEL ADMINISTRADOR
 # ============================================================
 if st.session_state.admin_autenticado and st.session_state.es_admin:
-    st.success("Sesión de administrador")
+    st.success("SesiÃ³n de administrador")
     tabs = st.tabs([
         "Resumen", "Crear base", "Administrar bases", "Todas las personas",
         "Avance de militantes", "Asistencia general", "Exportar"
@@ -412,10 +410,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             c1, c2, c3 = st.columns(3)
             c1.metric("Bases activas", len(activas))
             c2.metric("Registros de pertenencia", len(filas))
-            c3.metric("Personas únicas en bases activas", len(personas_unicas))
+            c3.metric("Personas Ãºnicas en bases activas", len(personas_unicas))
             st.caption(
                 "Una persona registrada en varias bases cuenta una sola vez "
-                "en el total de personas únicas."
+                "en el total de personas Ãºnicas."
             )
             st.subheader("Bases activas")
             st.dataframe(df_bases(activas), use_container_width=True, hide_index=True)
@@ -424,7 +422,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
 
     with tabs[1]:
         st.subheader("Crear base y cuenta del secretario general")
-        st.caption("Selecciona primero la provincia; la lista de distritos se actualizará automáticamente.")
+        st.caption("Selecciona primero la provincia; la lista de distritos se actualizarÃ¡ automÃ¡ticamente.")
         nombre = st.text_input("Nombre de la base o comando", key="crear_nombre_base")
         provincia = st.selectbox(
             "Provincia", ["Seleccionar provincia"] + PROVINCIAS,
@@ -442,15 +440,19 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 "Distrito", ["Selecciona primero una provincia"],
                 disabled=True, key="crear_distrito_vacio"
             )
+            
+        # NUEVO CAMPO: DIRECCIÃ“N
+        direccion = st.text_input("DirecciÃ³n de la base", key="crear_direccion_base").strip()
+        
         usuario = st.text_input("Usuario del secretario general", key="crear_usuario_base").strip()
-        mostrar_clave_nueva = st.checkbox("👁️ Mostrar contraseña inicial", key="mostrar_clave_inicial")
+        mostrar_clave_nueva = st.checkbox("ðŸ‘ï¸ Mostrar contraseÃ±a inicial", key="mostrar_clave_inicial")
         password = st.text_input(
-            "Contraseña inicial (8 a 10 caracteres)",
+            "ContraseÃ±a inicial (8 a 10 caracteres)",
             type="default" if mostrar_clave_nueva else "password",
             key="crear_password_base"
         )
         confirmar = st.text_input(
-            "Confirmar contraseña",
+            "Confirmar contraseÃ±a",
             type="default" if mostrar_clave_nueva else "password",
             key="crear_confirmar_password_base"
         )
@@ -460,28 +462,30 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         )
         crear = st.button("Crear base", key="crear_base_admin_btn")
         if crear:
-            if not nombre.strip() or provincia not in DISTRITOS_PUNO or distrito not in distritos:
-                st.warning("Completa nombre, provincia y distrito.")
+            # SE AGREGA LA VALIDACIÃ“N DE DIRECCIÃ“N
+            if not nombre.strip() or provincia not in DISTRITOS_PUNO or distrito not in distritos or not direccion:
+                st.warning("Completa nombre, provincia, distrito y direcciÃ³n.")
             elif not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", usuario):
-                st.warning("El usuario debe tener de 3 a 40 caracteres: letras, números, punto, guion o guion bajo.")
+                st.warning("El usuario debe tener de 3 a 40 caracteres: letras, nÃºmeros, punto, guion o guion bajo.")
             elif not 8 <= len(password) <= 10:
-                st.warning("La contraseña debe tener entre 8 y 10 caracteres.")
+                st.warning("La contraseÃ±a debe tener entre 8 y 10 caracteres.")
             elif password != confirmar:
-                st.warning("Las contraseñas no coinciden.")
+                st.warning("Las contraseÃ±as no coinciden.")
             elif not acepta:
-                st.warning("Confirma la autorización antes de crear la cuenta.")
+                st.warning("Confirma la autorizaciÃ³n antes de crear la cuenta.")
             else:
                 try:
                     existe = supabase.table("bases_campana").select("id").eq(
                         "usuario", usuario
                     ).limit(1).execute().data
                     if existe:
-                        st.error("Ese usuario ya está ocupado.")
+                        st.error("Ese usuario ya estÃ¡ ocupado.")
                     else:
                         supabase.table("bases_campana").insert({
                             "nombre_base": nombre.strip(),
                             "provincia": provincia,
                             "distrito": distrito,
+                            "direccion": direccion,  # SE GUARDA LA DIRECCIÃ“N
                             "usuario": usuario,
                             "password_hash": crear_hash(password),
                             "activo": True,
@@ -511,7 +515,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.dataframe(df_admin_bases, use_container_width=True, hide_index=True)
 
                 opciones = {
-                    f'{b.get("nombre_base")} · {b.get("usuario")} · '
+                    f'{b.get("nombre_base")} Â· {b.get("usuario")} Â· '
                     f'{"Activa" if b.get("activo", True) else "Desactivada"}': b
                     for b in bases
                 }
@@ -519,17 +523,17 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 elegida = opciones[seleccion]
                 activa = bool(elegida.get("activo", True))
                 st.write(f'**Integrantes asociados:** {len(cargar_integrantes(elegida["id"]))}')
-                st.markdown("#### Usuario y recuperación de contraseña")
+                st.markdown("#### Usuario y recuperaciÃ³n de contraseÃ±a")
                 st.write(f'**Usuario:** `{elegida.get("usuario", "")}`')
-                st.caption("La contraseña anterior no se puede mostrar porque solo se guarda su hash. Si se perdió, genera una contraseña temporal.")
+                st.caption("La contraseÃ±a anterior no se puede mostrar porque solo se guarda su hash. Si se perdiÃ³, genera una contraseÃ±a temporal.")
                 clave_state = f"clave_temporal_{elegida['id']}"
                 ver_state = f"ver_clave_temporal_{elegida['id']}"
                 confirmar_reset = st.checkbox(
-                    f'Confirmo restablecer la contraseña de «{elegida["nombre_base"]}»',
+                    f'Confirmo restablecer la contraseÃ±a de Â«{elegida["nombre_base"]}Â»',
                     key=f"confirmar_reset_{elegida['id']}"
                 )
                 if st.button(
-                    "Generar nueva contraseña temporal",
+                    "Generar nueva contraseÃ±a temporal",
                     key=f"reset_password_{elegida['id']}",
                     disabled=not confirmar_reset
                 ):
@@ -540,15 +544,15 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         ).eq("id", elegida["id"]).execute()
                         st.session_state[clave_state] = nueva_clave
                         st.session_state[ver_state] = False
-                        st.success("Contraseña restablecida. Copia la nueva clave y entrégala al secretario de forma privada.")
+                        st.success("ContraseÃ±a restablecida. Copia la nueva clave y entrÃ©gala al secretario de forma privada.")
                     except Exception as e:
-                        error_supabase("No se pudo restablecer la contraseña.", e)
+                        error_supabase("No se pudo restablecer la contraseÃ±a.", e)
                 if clave_state in st.session_state:
-                    st.checkbox("👁️ Mostrar contraseña temporal", key=ver_state)
+                    st.checkbox("ðŸ‘ï¸ Mostrar contraseÃ±a temporal", key=ver_state)
                     st.code(
                         st.session_state[clave_state]
                         if st.session_state.get(ver_state, False)
-                        else "••••••••••••"
+                        else "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                     )
                     if st.button(
                         "Ocultar y retirar clave de esta pantalla",
@@ -559,7 +563,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.rerun()
                 if activa:
                     confirmar_estado = st.checkbox(
-                        f'Confirmo desactivar «{elegida["nombre_base"]}»',
+                        f'Confirmo desactivar Â«{elegida["nombre_base"]}Â»',
                         key=f'desact_{elegida["id"]}'
                     )
                     if st.button("Desactivar base", disabled=not confirmar_estado, key=f"desactivar_{elegida['id']}"):
@@ -570,7 +574,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.rerun()
                 else:
                     confirmar_estado = st.checkbox(
-                        f'Confirmo reactivar «{elegida["nombre_base"]}»',
+                        f'Confirmo reactivar Â«{elegida["nombre_base"]}Â»',
                         key=f'react_{elegida["id"]}'
                     )
                     if st.button("Reactivar base", disabled=not confirmar_estado, key=f"reactivar_{elegida['id']}"):
@@ -600,11 +604,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             else:
                 st.info("No hay integrantes en bases activas.")
         except Exception as e:
-            error_supabase("No se pudo cargar el padrón.", e)
+            error_supabase("No se pudo cargar el padrÃ³n.", e)
 
-    # NUEVO: ESTADÍSTICAS DE AVANCE, META 100 POR BASE
     with tabs[4]:
-        st.subheader("Avance de integración de militantes")
+        st.subheader("Avance de integraciÃ³n de militantes")
         st.caption("Meta establecida: 100 integrantes registrados por base activa.")
         try:
             bases_activas = cargar_bases(solo_activas=True)
@@ -618,8 +621,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 if dni:
                     dnis_por_base.setdefault(bid, set()).add(dni)
                 else:
-                    # Si un registro no tiene DNI, sigue contando como registro
-                    # para no ocultar un registro que ya existe en esa base.
                     dnis_por_base.setdefault(bid, set()).add(
                         f"sin-dni-registro-{persona.get('id')}"
                     )
@@ -663,7 +664,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     ["Avance (%)", "Base"], ascending=[False, True]
                 )
                 st.dataframe(df_ordenado, use_container_width=True, hide_index=True)
-                st.markdown("#### Comparación visual")
+                st.markdown("#### ComparaciÃ³n visual")
                 df_grafico = df_ordenado.set_index("Base")[["Militantes registrados"]]
                 st.bar_chart(df_grafico)
                 st.download_button(
@@ -680,52 +681,52 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
     with tabs[5]:
         st.subheader("Control de asistencia general")
         st.caption(
-            "Cada DNI se registra una sola vez por reunión. La lista de asistencia "
-            "mostrará únicamente la fecha y la hora del registro."
+            "Cada DNI se registra una sola vez por reuniÃ³n. La lista de asistencia "
+            "mostrarÃ¡ Ãºnicamente la fecha y la hora del registro."
         )
         try:
             with st.form("crear_reunion_general"):
-                fecha_reunion = st.date_input("Fecha de la reunión", value=date.today())
-                tema_reunion = st.text_input("Tema o motivo de la reunión")
-                crear_reunion = st.form_submit_button("Crear reunión general")
+                fecha_reunion = st.date_input("Fecha de la reuniÃ³n", value=date.today())
+                tema_reunion = st.text_input("Tema o motivo de la reuniÃ³n")
+                crear_reunion = st.form_submit_button("Crear reuniÃ³n general")
             if crear_reunion:
                 if not tema_reunion.strip():
-                    st.warning("Escribe el tema o motivo de la reunión.")
+                    st.warning("Escribe el tema o motivo de la reuniÃ³n.")
                 else:
                     supabase.table("reuniones_generales").insert({
                         "fecha": str(fecha_reunion),
                         "tema": tema_reunion.strip()
                     }).execute()
-                    st.success("Reunión creada.")
+                    st.success("ReuniÃ³n creada.")
                     st.rerun()
 
             reuniones = cargar_reuniones_generales()
             if reuniones:
                 mapa_reuniones = {
-                    f'{r["fecha"]} · {r["tema"]} · ID {r["id"]}': r for r in reuniones
+                    f'{r["fecha"]} Â· {r["tema"]} Â· ID {r["id"]}': r for r in reuniones
                 }
                 reunion_label = st.selectbox(
-                    "Reunión", list(mapa_reuniones), key="reunion_general_sel"
+                    "ReuniÃ³n", list(mapa_reuniones), key="reunion_general_sel"
                 )
                 reunion = mapa_reuniones[reunion_label]
                 presentes = cargar_asistencias_generales(reunion["id"])
                 st.metric(
-                    "Personas únicas presentes",
+                    "Personas Ãºnicas presentes",
                     len({dni_normalizado(a.get("dni")) for a in presentes if dni_normalizado(a.get("dni"))})
                 )
                 with st.form("registrar_asistencia_general"):
-                    dni_buscar = st.text_input("DNI que dicta la persona (8 dígitos)").strip()
+                    dni_buscar = st.text_input("DNI que dicta la persona (8 dÃ­gitos)").strip()
                     registrar = st.form_submit_button("Buscar persona")
                 if registrar:
                     if not re.fullmatch(r"\d{8}", dni_buscar):
-                        st.warning("El DNI debe tener exactamente 8 dígitos.")
+                        st.warning("El DNI debe tener exactamente 8 dÃ­gitos.")
                     else:
                         miembros_activos = cargar_integrantes(solo_bases_activas=True)
                         principal, bases_persona = persona_por_dni(
                             miembros_activos, dni_buscar, mapa_bases_global
                         )
                         if principal is None:
-                            st.warning("No se encontró ese DNI en ninguna base activa. Pide al secretario que revise su registro.")
+                            st.warning("No se encontrÃ³ ese DNI en ninguna base activa. Pide al secretario que revise su registro.")
                         else:
                             st.session_state["persona_asistencia_encontrada"] = {
                                 "dni": dni_buscar,
@@ -741,7 +742,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     st.write(f'**DNI:** {encontrado["dni"]}')
                     st.write("**Bases activas:** " + (", ".join(encontrado["bases"]) or "Ninguna"))
                     if any(dni_normalizado(a.get("dni")) == encontrado["dni"] for a in presentes):
-                        st.info("Esta persona ya figura presente en esta reunión.")
+                        st.info("Esta persona ya figura presente en esta reuniÃ³n.")
                     elif st.button(
                         "Confirmar y registrar asistencia",
                         key=f'confirmar_asistencia_{encontrado["dni"]}_{reunion["id"]}'
@@ -759,7 +760,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             st.success("Asistencia registrada una sola vez.")
                             st.rerun()
                         except Exception as e:
-                            error_supabase("No se pudo registrar la asistencia. Puede que ya esté registrada.", e)
+                            error_supabase("No se pudo registrar la asistencia. Puede que ya estÃ© registrada.", e)
 
                 st.divider()
                 st.subheader("Lista de asistencia")
@@ -778,15 +779,15 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     )
                 else:
-                    st.info("Todavía no hay asistentes registrados en esta reunión.")
+                    st.info("TodavÃ­a no hay asistentes registrados en esta reuniÃ³n.")
             else:
-                st.info("Crea una reunión general para comenzar a pasar lista.")
+                st.info("Crea una reuniÃ³n general para comenzar a pasar lista.")
         except Exception as e:
-            error_supabase("No se pudo cargar la asistencia general. Ejecuta primero el SQL de actualización.", e)
+            error_supabase("No se pudo cargar la asistencia general. Ejecuta primero el SQL de actualizaciÃ³n.", e)
 
     with tabs[6]:
-        st.subheader("Exportación consolidada")
-        st.warning("El archivo contiene datos personales. Compártelo solo con personas autorizadas.")
+        st.subheader("ExportaciÃ³n consolidada")
+        st.warning("El archivo contiene datos personales. CompÃ¡rtelo solo con personas autorizadas.")
         try:
             bases = cargar_bases(solo_activas=True)
             ids_activas = {str(b["id"]) for b in bases}
@@ -826,7 +827,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             ])
             reuniones = cargar_reuniones_generales()
             df_reuniones = pd.DataFrame([
-                {"Fecha": r.get("fecha"), "Tema": r.get("tema"), "ID reunión": r.get("id")}
+                {"Fecha": r.get("fecha"), "Tema": r.get("tema"), "ID reuniÃ³n": r.get("id")}
                 for r in reuniones
             ])
             asistencias = []
@@ -834,14 +835,14 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 for a in cargar_asistencias_generales(r["id"]):
                     fecha_reg, hora_reg = fecha_hora_peru(a.get("registrado_en"))
                     asistencias.append({
-                        "Fecha de reunión": r.get("fecha"),
-                        "Reunión": r.get("tema"),
+                        "Fecha de reuniÃ³n": r.get("fecha"),
+                        "ReuniÃ³n": r.get("tema"),
                         "Fecha de registro": fecha_reg,
                         "Hora de registro": hora_reg,
                     })
             df_asistencias = pd.DataFrame(
                 asistencias,
-                columns=["Fecha de reunión", "Reunión", "Fecha de registro", "Hora de registro"]
+                columns=["Fecha de reuniÃ³n", "ReuniÃ³n", "Fecha de registro", "Hora de registro"]
             )
             conteo_base = {}
             for f in miembros:
@@ -852,12 +853,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 {"Base": nombre_base, "Integrantes registrados": total}
                 for nombre_base, total in sorted(conteo_base.items())
             ])
-            st.metric("Personas únicas en bases activas", len(df_personas))
+            st.metric("Personas Ãºnicas en bases activas", len(df_personas))
             st.download_button(
                 "Descargar TODO en un solo Excel",
                 data=excel_con_hojas({
                     "Bases activas": df_bases(bases),
-                    "Personas únicas": df_personas,
+                    "Personas Ãºnicas": df_personas,
                     "Pertenencias y cargos": df_miembros,
                     "Reuniones generales": df_reuniones,
                     "Asistencias": df_asistencias,
@@ -878,15 +879,15 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             )
             styles = getSampleStyleSheet()
             story = [
-                Paragraph("Registro de Bases y Comandos — Informe general", styles["Title"]),
+                Paragraph("Registro de Bases y Comandos â€” Informe general", styles["Title"]),
                 Spacer(1, 10),
                 Paragraph(
-                    f"Bases activas: {len(bases)} · Personas únicas: {len(df_personas)} · "
+                    f"Bases activas: {len(bases)} Â· Personas Ãºnicas: {len(df_personas)} Â· "
                     f"Reuniones generales: {len(reuniones)}",
                     styles["Normal"]
                 ),
                 Spacer(1, 12),
-                Paragraph("Padrón de personas y bases", styles["Heading2"]),
+                Paragraph("PadrÃ³n de personas y bases", styles["Heading2"]),
             ]
             pdf_data = [["Nombres", "Apellidos", "DNI", "Bases activas"]]
             for _, row in df_personas.iterrows():
@@ -918,7 +919,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudieron preparar los archivos. Verifica el SQL y las dependencias.", e)
 
-    if st.button("Cerrar sesión de administrador"):
+    if st.button("Cerrar sesiÃ³n de administrador"):
         limpiar_sesion()
         st.rerun()
 
@@ -933,17 +934,19 @@ if st.session_state.base_id is not None:
             "activo"
         ).eq("id", base_id).limit(1).execute().data
         if not verif or not verif[0].get("activo", True):
-            st.error("Esta base está desactivada. La sesión se cerró y sus datos se conservaron.")
+            st.error("Esta base estÃ¡ desactivada. La sesiÃ³n se cerrÃ³ y sus datos se conservaron.")
             limpiar_sesion()
             st.stop()
     except Exception:
-        st.error("No se pudo verificar el estado de la base. Por seguridad, vuelve a iniciar sesión.")
+        st.error("No se pudo verificar el estado de la base. Por seguridad, vuelve a iniciar sesiÃ³n.")
         limpiar_sesion()
         st.stop()
 
+    # SE AGREGA LA DIRECCIÃ“N AL MENSAJE DE BIENVENIDA
     st.success(
-        f'Sesión: {st.session_state.base_nombre} · '
-        f'{st.session_state.base_provincia} / {st.session_state.base_distrito}'
+        f'SesiÃ³n: {st.session_state.base_nombre} Â· '
+        f'{st.session_state.base_provincia} / {st.session_state.base_distrito} Â· '
+        f'DirecciÃ³n: {st.session_state.base_direccion}'
     )
     st.subheader("Integrantes de tu base")
     st.caption(
@@ -951,23 +954,21 @@ if st.session_state.base_id is not None:
         "La misma persona puede pertenecer a otras bases con otro cargo."
     )
 
-    # IMPORTANTE: este formulario usa widgets normales, no st.form,
-    # para que el campo "Otro" se habilite inmediatamente al seleccionarlo.
     with st.expander("Agregar integrante", expanded=False):
         nombres = st.text_input("Nombres", key="nuevo_integrante_nombres")
         apellidos = st.text_input("Apellidos", key="nuevo_integrante_apellidos")
-        dni = st.text_input("DNI (8 dígitos)", key="nuevo_integrante_dni")
+        dni = st.text_input("DNI (8 dÃ­gitos)", key="nuevo_integrante_dni")
         celular = st.text_input("Celular (opcional)", key="nuevo_integrante_celular")
         cargo_seleccionado = st.selectbox(
-            "Cargo o condición", CARGOS, key="nuevo_integrante_cargo"
+            "Cargo o condiciÃ³n", CARGOS, key="nuevo_integrante_cargo"
         )
         cargo_otro = st.text_input(
-            "Especifica el cargo o condición",
+            "Especifica el cargo o condiciÃ³n",
             disabled=(cargo_seleccionado != "Otro"),
             key="nuevo_integrante_cargo_otro",
         )
         consentimiento = st.checkbox(
-            "Confirmo que la persona fue informada sobre el uso de sus datos y autorizó su registro.",
+            "Confirmo que la persona fue informada sobre el uso de sus datos y autorizÃ³ su registro.",
             key="nuevo_integrante_consentimiento",
         )
         guardar = st.button("Guardar integrante", key="guardar_integrante_btn")
@@ -981,20 +982,20 @@ if st.session_state.base_id is not None:
             if not nombres.strip() or not apellidos.strip():
                 st.warning("Completa nombres y apellidos.")
             elif not re.fullmatch(r"\d{8}", dni.strip()):
-                st.warning("El DNI debe contener exactamente 8 dígitos.")
+                st.warning("El DNI debe contener exactamente 8 dÃ­gitos.")
             elif celular.strip() and not re.fullmatch(r"\+?\d{9,15}", celular.strip()):
-                st.warning("Si ingresas celular, usa entre 9 y 15 dígitos; puedes incluir + al inicio.")
+                st.warning("Si ingresas celular, usa entre 9 y 15 dÃ­gitos; puedes incluir + al inicio.")
             elif cargo_seleccionado == "Otro" and not cargo_final:
-                st.warning("Especifica el cargo o condición.")
+                st.warning("Especifica el cargo o condiciÃ³n.")
             elif not consentimiento:
-                st.warning("Confirma que la persona fue informada y autorizó el registro.")
+                st.warning("Confirma que la persona fue informada y autorizÃ³ el registro.")
             else:
                 try:
                     existentes = supabase.table("integrantes_base").select(
                         "id,dni"
                     ).eq("base_id", base_id).eq("dni", dni.strip()).limit(1).execute().data
                     if existentes:
-                        st.error("Este DNI ya está registrado en esta base. No se creará un duplicado.")
+                        st.error("Este DNI ya estÃ¡ registrado en esta base. No se crearÃ¡ un duplicado.")
                     else:
                         supabase.table("integrantes_base").insert({
                             "base_id": base_id,
@@ -1034,11 +1035,11 @@ if st.session_state.base_id is not None:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         else:
-            st.info("No hay integrantes que coincidan con la búsqueda.")
+            st.info("No hay integrantes que coincidan con la bÃºsqueda.")
     except Exception as e:
         error_supabase("No se pudo cargar la lista de integrantes.", e)
 
-    if st.button("Cerrar sesión de base"):
+    if st.button("Cerrar sesiÃ³n de base"):
         limpiar_sesion()
         st.rerun()
 
@@ -1049,7 +1050,7 @@ if st.session_state.base_id is not None:
 st.divider()
 with st.expander("Aviso de privacidad"):
     st.write(
-        "Los nombres, DNI y teléfonos son datos personales. Recógelos solo con "
-        "una finalidad informada, limita el acceso a usuarios autorizados y "
+        "Los nombres, DNI y telefonos son datos personales. "
+        "RecÃ³gelos solo con una finalidad informada, limita el acceso a usuarios autorizados y "
         "comparte los informes solo con personas autorizadas."
     )
