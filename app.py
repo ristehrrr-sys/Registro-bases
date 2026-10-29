@@ -97,10 +97,18 @@ DISTRITOS_PUNO = {
 }
 PROVINCIAS = sorted(DISTRITOS_PUNO.keys())
 
+# LISTA DE CARGOS
 CARGOS = [
-    "Secretario general de base",
-    "Secretario de organización",
-    "Secretario de economía",
+    "SECRETARIO(a) GENERAL",
+    "SECRETARIO(a) DE ORGANIZACIÓN Y MOVILIZACION",
+    "SECRETARIO(a) DE PRENSA Y PROPAGANDA",
+    "SECRETARIO(a) DE LA MUJER",
+    "SECRETARIO(a) DE JUVENTUDES",
+    "SECRETARIO(a) DE ECONOMIA",
+    "SECRETARIO(a) DE SERIGRAFIADO",
+    "SECRETARIO(a) DE PERIFONEO Y VOLANTEO",
+    "SECRETARIO(a) DE ASESORIA ELECTORAL Y DEFENSA DEL VOTO",
+    "SECRETARIO(a) DE INTERVENCION GRAFICA TERRITORIAL",
     "Militante",
     "Otro",
 ]
@@ -144,7 +152,7 @@ def credenciales_admin_validas(usuario: str, password: str) -> bool:
 
 def limpiar_sesion():
     claves = (
-        "base_id", "base_nombre", "base_provincia", "base_distrito", "base_direccion",
+        "base_id", "base_nombre", "base_provincia", "base_distrito", "base_direccion", "base_cargo",
         "es_admin", "mostrar_registro", "mostrar_integrante",
         "admin_autenticado", "persona_asistencia_encontrada",
     )
@@ -155,6 +163,7 @@ def limpiar_sesion():
     st.session_state.base_provincia = ""
     st.session_state.base_distrito = ""
     st.session_state.base_direccion = ""
+    st.session_state.base_cargo = ""
     st.session_state.es_admin = False
     st.session_state.admin_autenticado = False
 
@@ -164,6 +173,7 @@ defaults = {
     "base_provincia": "",
     "base_distrito": "",
     "base_direccion": "",
+    "base_cargo": "",
     "es_admin": False,
     "admin_autenticado": False,
     "vista_publica": "Iniciar sesión",
@@ -196,7 +206,7 @@ def cargar_bases(solo_activas=False):
     filtros = [("eq", "activo", True)] if solo_activas else []
     return ejecutar_todas_las_filas(
         "bases_campana",
-        "id,nombre_base,provincia,distrito,direccion,usuario,fecha_registro,activo",
+        "id,nombre_base,provincia,distrito,direccion,usuario,cargo,fecha_registro,activo",
         ordenar_por=("nombre_base", False),
         filtros=filtros,
     )
@@ -240,6 +250,7 @@ def excel_con_hojas(hojas):
 def df_bases(filas):
     return pd.DataFrame([{
         "Base": b.get("nombre_base", ""),
+        "Cargo": b.get("cargo", ""),
         "Dirección": b.get("direccion", ""),
         "Provincia": b.get("provincia", ""),
         "Distrito": b.get("distrito", ""),
@@ -330,7 +341,7 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
         if entrar:
             try:
                 resultado = supabase.table("bases_campana").select(
-                    "id,nombre_base,provincia,distrito,direccion,usuario,password_hash,activo"
+                    "id,nombre_base,provincia,distrito,direccion,usuario,cargo,password_hash,activo"
                 ).eq("usuario", usuario_login).eq("activo", True).limit(1).execute()
                 if resultado.data and verificar_password(
                     password_login, resultado.data[0].get("password_hash", "")
@@ -341,6 +352,7 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
                     st.session_state.base_provincia = cuenta.get("provincia") or ""
                     st.session_state.base_distrito = cuenta.get("distrito") or ""
                     st.session_state.base_direccion = cuenta.get("direccion") or ""
+                    st.session_state.base_cargo = cuenta.get("cargo") or ""
                     st.rerun()
                 else:
                     st.error("Usuario o contraseña incorrectos, o la base está desactivada.")
@@ -400,9 +412,13 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             error_supabase("No se pudo cargar el resumen.", e)
 
     with tabs[1]:
-        st.subheader("Crear base y cuenta del secretario general")
+        st.subheader("Crear base y cuenta de usuario")
         st.caption("Selecciona primero la provincia; la lista de distritos se actualizará automáticamente.")
         nombre = st.text_input("Nombre de la base o comando", key="crear_nombre_base")
+        
+        # NUEVO CAMPO: SELECCIONAR EL CARGO DEL USUARIO A CREAR
+        cargo_cuenta = st.selectbox("Cargo de la cuenta a crear", CARGOS, key="crear_cargo_usuario")
+        
         provincia = st.selectbox(
             "Provincia", ["Seleccionar provincia"] + PROVINCIAS,
             key="crear_provincia_base"
@@ -424,8 +440,9 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         
         usuario = st.text_input("Usuario del secretario general", key="crear_usuario_base").strip()
         mostrar_clave_nueva = st.checkbox("👁️ Mostrar contraseña inicial", key="mostrar_clave_inicial")
+        
         password = st.text_input(
-            "Contraseña inicial (8 a 10 caracteres)",
+            "Contraseña inicial (8 a 12 caracteres)",
             type="default" if mostrar_clave_nueva else "password",
             key="crear_password_base"
         )
@@ -444,8 +461,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.warning("Completa nombre, provincia, distrito y dirección.")
             elif not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", usuario):
                 st.warning("El usuario debe tener de 3 a 40 caracteres: letras, números, punto, guion o guion bajo.")
-            elif not 8 <= len(password) <= 10:
-                st.warning("La contraseña debe tener entre 8 y 10 caracteres.")
+            elif not 8 <= len(password) <= 12:
+                st.warning("La contraseña debe tener entre 8 y 12 caracteres.")
             elif password != confirmar:
                 st.warning("Las contraseñas no coinciden.")
             elif not acepta:
@@ -464,10 +481,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             "distrito": distrito,
                             "direccion": direccion,
                             "usuario": usuario,
+                            "cargo": cargo_cuenta, # SE GUARDA EL CARGO
                             "password_hash": crear_hash(password),
                             "activo": True,
                         }).execute()
-                        st.success("Base creada. Entrega las credenciales al secretario de forma privada.")
+                        st.success("Base y cuenta creada correctamente. Entrega las credenciales de forma privada.")
                 except Exception as e:
                     error_supabase("No se pudo crear la base. Verifica el SQL aplicado.", e)
 
@@ -503,7 +521,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 integrantes_base_actual = cargar_integrantes(elegida["id"])
                 st.write(f'**Integrantes asociados:** {len(integrantes_base_actual)}')
 
-                # --- NUEVA SECCIÓN: EDITAR INTEGRANTE (ADMIN) ---
+                # --- CORREGIR DATOS DE UN INTEGRANTE (ADMIN) ---
                 with st.expander("✏️ Corregir datos de un integrante de esta base", expanded=False):
                     if integrantes_base_actual:
                         opciones_editar = {
@@ -564,11 +582,15 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                             error_supabase("No se pudieron actualizar los datos del integrante.", e)
                     else:
                         st.info("Esta base no tiene integrantes registrados para editar.")
-                # --- FIN EDICIÓN INTEGRANTE ---
 
                 # --- EDITAR DATOS DE LA BASE (ADMIN) ---
                 with st.expander("✏️ Editar datos de esta base", expanded=False):
                     edit_nombre = st.text_input("Nombre de la base", value=elegida.get("nombre_base", ""), key=f"edit_nombre_{elegida['id']}")
+                    
+                    # NUEVO: Editar el cargo de la cuenta principal de la base
+                    cargo_actual_base = elegida.get("cargo", "")
+                    idx_cargo_base = CARGOS.index(cargo_actual_base) if cargo_actual_base in CARGOS else 0
+                    edit_cargo_base = st.selectbox("Cargo del usuario de esta base", CARGOS, index=idx_cargo_base, key=f"edit_cargo_base_{elegida['id']}")
                     
                     prov_actual = elegida.get("provincia", "")
                     prov_index = PROVINCIAS.index(prov_actual) + 1 if prov_actual in PROVINCIAS else 0
@@ -598,6 +620,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             try:
                                 supabase.table("bases_campana").update({
                                     "nombre_base": edit_nombre.strip(),
+                                    "cargo": edit_cargo_base,
                                     "provincia": edit_provincia,
                                     "distrito": edit_distrito,
                                     "direccion": edit_direccion.strip()
@@ -606,7 +629,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                 st.rerun()
                             except Exception as e:
                                 error_supabase("No se pudieron actualizar los datos.", e)
-                # --- FIN EDICIÓN BASE ---
 
                 st.markdown("#### Usuario y recuperación de contraseña")
                 st.write(f'**Usuario:** `{elegida.get("usuario", "")}`')
@@ -1063,6 +1085,7 @@ if st.session_state.base_id is not None:
     st.success(
         f'Sesión: {st.session_state.base_nombre} · '
         f'{st.session_state.base_provincia} / {st.session_state.base_distrito} · '
+        f'Cargo: {st.session_state.base_cargo} · '
         f'Dirección: {st.session_state.base_direccion}'
     )
     
@@ -1072,7 +1095,6 @@ if st.session_state.base_id is not None:
         "La misma persona puede pertenecer a otras bases con otro cargo."
     )
 
-    # Cargar integrantes una sola vez para usarlos en la tabla
     try:
         filas = cargar_integrantes(base_id)
     except Exception as e:
