@@ -107,7 +107,6 @@ CARGOS = [
 META_POR_BASE = 100
 FILAS_POR_PAGINA = 1000
 
-
 # ============================================================
 # CONTRASEÑAS Y SESIÓN
 # ============================================================
@@ -118,7 +117,6 @@ def crear_hash(password: str) -> str:
     ).hex()
     return f"{salt}${digest}"
 
-
 def verificar_password(password: str, guardada: str) -> bool:
     try:
         salt, digest = guardada.split("$", 1)
@@ -128,7 +126,6 @@ def verificar_password(password: str, guardada: str) -> bool:
         return hmac.compare_digest(calculado, digest)
     except (ValueError, TypeError, AttributeError):
         return False
-
 
 def credenciales_admin_validas(usuario: str, password: str) -> bool:
     try:
@@ -144,7 +141,6 @@ def credenciales_admin_validas(usuario: str, password: str) -> bool:
             "Configúralos antes de iniciar sesión como administrador."
         )
         return False
-
 
 def limpiar_sesion():
     claves = (
@@ -162,7 +158,6 @@ def limpiar_sesion():
     st.session_state.es_admin = False
     st.session_state.admin_autenticado = False
 
-
 defaults = {
     "base_id": None,
     "base_nombre": "",
@@ -176,7 +171,6 @@ defaults = {
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
-
 
 # ============================================================
 # FUNCIONES DE DATOS
@@ -198,7 +192,6 @@ def ejecutar_todas_las_filas(tabla, columnas, ordenar_por=None, filtros=None):
         inicio += FILAS_POR_PAGINA
     return filas
 
-
 def cargar_bases(solo_activas=False):
     filtros = [("eq", "activo", True)] if solo_activas else []
     return ejecutar_todas_las_filas(
@@ -207,7 +200,6 @@ def cargar_bases(solo_activas=False):
         ordenar_por=("nombre_base", False),
         filtros=filtros,
     )
-
 
 def cargar_integrantes(base_id=None, solo_bases_activas=False):
     filtros = [("eq", "base_id", base_id)] if base_id is not None else []
@@ -222,14 +214,11 @@ def cargar_integrantes(base_id=None, solo_bases_activas=False):
         filas = [f for f in filas if str(f.get("base_id")) in activos]
     return filas
 
-
 def nombre_completo(fila):
     return f'{fila.get("nombres", "")} {fila.get("apellidos", "")}'.strip()
 
-
 def dni_normalizado(valor):
     return str(valor or "").strip()
-
 
 def excel_bytes(df, hoja="Registros"):
     archivo = io.BytesIO()
@@ -237,7 +226,6 @@ def excel_bytes(df, hoja="Registros"):
         df.to_excel(writer, index=False, sheet_name=hoja[:31])
     archivo.seek(0)
     return archivo.getvalue()
-
 
 def excel_con_hojas(hojas):
     archivo = io.BytesIO()
@@ -249,7 +237,6 @@ def excel_con_hojas(hojas):
     archivo.seek(0)
     return archivo.getvalue()
 
-
 def df_bases(filas):
     return pd.DataFrame([{
         "Base": b.get("nombre_base", ""),
@@ -260,7 +247,6 @@ def df_bases(filas):
         "Estado": "Activa" if b.get("activo", True) else "Desactivada",
         "Fecha de registro": str(b.get("fecha_registro", ""))[:10],
     } for b in filas])
-
 
 def df_integrantes(filas, mapa_bases=None):
     mapa_bases = mapa_bases or {}
@@ -274,7 +260,6 @@ def df_integrantes(filas, mapa_bases=None):
         "Fecha de registro": str(f.get("fecha_registro", ""))[:10],
     } for f in filas])
 
-
 def error_supabase(mensaje, error=None):
     st.error(mensaje)
     st.caption(
@@ -284,13 +269,11 @@ def error_supabase(mensaje, error=None):
     if error:
         st.caption(str(error))
 
-
 def cargar_reuniones_generales():
     return ejecutar_todas_las_filas(
         "reuniones_generales", "id,fecha,tema,creada_en",
         ordenar_por=("fecha", True)
     )
-
 
 def cargar_asistencias_generales(reunion_id):
     return ejecutar_todas_las_filas(
@@ -299,7 +282,6 @@ def cargar_asistencias_generales(reunion_id):
         ordenar_por=("apellidos", False),
         filtros=[("eq", "reunion_id", reunion_id)],
     )
-
 
 def persona_por_dni(filas, dni, mapa_bases):
     coincidencias = [f for f in filas if dni_normalizado(f.get("dni")) == dni]
@@ -312,7 +294,6 @@ def persona_por_dni(filas, dni, mapa_bases):
         if nombre not in bases:
             bases.append(nombre)
     return principal, bases
-
 
 def fecha_hora_peru(valor):
     if not valor:
@@ -327,7 +308,6 @@ def fecha_hora_peru(valor):
     except (ValueError, TypeError):
         texto = str(valor)
         return texto[:10], texto[11:19] if len(texto) >= 19 else ""
-
 
 # ============================================================
 # ENCABEZADO Y ACCESO
@@ -387,7 +367,6 @@ except Exception:
     todas_bases_global = []
     mapa_bases_global = {}
 
-
 # ============================================================
 # PANEL ADMINISTRADOR
 # ============================================================
@@ -440,7 +419,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 "Distrito", ["Selecciona primero una provincia"],
                 disabled=True, key="crear_distrito_vacio"
             )
-            
         # CAMPO DIRECCIÓN
         direccion = st.text_input("Dirección de la base", key="crear_direccion_base").strip()
         
@@ -582,6 +560,45 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         ).eq("id", elegida["id"]).execute()
                         st.success("Base reactivada.")
                         st.rerun()
+
+                # --- ZONA DE PELIGRO: ELIMINAR BASE ---
+                st.divider()
+                st.markdown("#### 🚨 Zona de peligro")
+                st.caption("Eliminar una base borrará **todos** sus integrantes asociados de forma permanente. Esta acción no se puede deshacer.")
+                
+                confirmar_check = st.checkbox(
+                    f'Confirmo que quiero ELIMINAR permanentemente la base «{elegida["nombre_base"]}»',
+                    key=f'eliminar_check_{elegida["id"]}'
+                )
+                
+                # Clave de sesión para mostrar el mensaje de confirmación final
+                confirmar_final_key = f"confirmar_eliminar_final_{elegida['id']}"
+                
+                if st.button("Solicitar eliminación de base", type="primary", disabled=not confirmar_check, key=f"eliminar_btn_{elegida['id']}"):
+                    st.session_state[confirmar_final_key] = True
+                
+                # DOBLE CONFIRMACIÓN
+                if st.session_state.get(confirmar_final_key, False):
+                    st.error(f"⚠️ ¿REALMENTE DESEAS ELIMINAR LA BASE «{elegida['nombre_base']}» Y TODOS SUS INTEGRANTES? ESTA ACCIÓN ES IRREVERSIBLE.")
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if st.button("SÍ, ELIMINAR DEFINITIVAMENTE", type="primary", key=f"si_eliminar_{elegida['id']}"):
+                            try:
+                                # 1. Primero eliminamos a los integrantes de esa base para evitar errores
+                                supabase.table("integrantes_base").delete().eq("base_id", elegida["id"]).execute()
+                                # 2. Luego eliminamos la base
+                                supabase.table("bases_campana").delete().eq("id", elegida["id"]).execute()
+                                
+                                st.session_state[confirmar_final_key] = False
+                                st.success(f"La base «{elegida['nombre_base']}» y todos sus integrantes han sido eliminados.")
+                                st.rerun()
+                            except Exception as e:
+                                error_supabase("No se pudo eliminar la base. Verifica si tiene otros datos vinculados.", e)
+                    with col_btn2:
+                        if st.button("Cancelar", key=f"cancelar_eliminar_{elegida['id']}"):
+                            st.session_state[confirmar_final_key] = False
+                            st.rerun()
+
             else:
                 st.info("No hay bases registradas.")
         except Exception as e:
@@ -922,7 +939,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         limpiar_sesion()
         st.rerun()
 
-
 # ============================================================
 # PANEL DEL SECRETARIO GENERAL DE BASE
 # ============================================================
@@ -1040,7 +1056,6 @@ if st.session_state.base_id is not None:
     if st.button("Cerrar sesión de base"):
         limpiar_sesion()
         st.rerun()
-
 
 # ============================================================
 # AVISO DE PRIVACIDAD
