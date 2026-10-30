@@ -1083,12 +1083,23 @@ if st.session_state.base_id is not None:
         limpiar_sesion()
         st.stop()
 
-    st.success(
-        f'Sesión: {st.session_state.base_nombre} · '
-        f'{st.session_state.base_provincia} / {st.session_state.base_distrito} · '
-        f'Cargo: {st.session_state.base_cargo} · '
-        f'Dirección: {st.session_state.base_direccion}'
-    )
+    st.markdown(
+    f"""
+    <div style="
+        background-color: #ff4b4b; 
+        color: white; 
+        padding: 15px; 
+        border-radius: 10px; 
+        text-align: center; 
+        font-size: 24px; 
+        font-weight: bold;
+        margin-bottom: 20px;
+    ">
+        {st.session_state.base_nombre.upper()}
+    </div>
+    """,
+    unsafe_allow_html=True
+)
     
     st.subheader("Integrantes de tu base")
     st.caption(
