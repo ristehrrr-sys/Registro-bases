@@ -545,7 +545,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             
                             cargo_actual = integrante_sel.get("cargo", "")
                             if cargo_actual in CARGOS:
-                                idx_cargo = CARGOS.index(cargo_actual)
+                                idx_cargo = CARGOS.index(cargo_actual) if cargo_actual in CARGOS else 0
                                 edit_cargo_sel = st.selectbox("Cargo o condición", CARGOS, index=idx_cargo, key=f"edit_cargo_sel_{integrante_sel['id']}")
                                 edit_cargo_otro = st.text_input("Especifica el cargo", value="", disabled=True, key=f"edit_cargo_otro_{integrante_sel['id']}")
                             else:
