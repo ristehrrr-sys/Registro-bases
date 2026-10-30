@@ -1085,17 +1085,13 @@ if st.session_state.base_id is not None:
 
     st.markdown(
     f"""
-    <div style="
-        background-color: #ff4b4b; 
-        color: white; 
-        padding: 15px; 
-        border-radius: 10px; 
-        text-align: center; 
-        font-size: 24px; 
-        font-weight: bold;
-        margin-bottom: 20px;
-    ">
-        {st.session_state.base_nombre.upper()}
+    <div style="text-align: center; margin-bottom: 20px; margin-top: 10px;">
+        <div style="font-size: 12px; color: #555555; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+            Base / Comando
+        </div>
+        <div style="font-size: 16px; color: #000000; font-weight: bold; text-transform: uppercase;">
+            {st.session_state.base_nombre}
+        </div>
     </div>
     """,
     unsafe_allow_html=True
