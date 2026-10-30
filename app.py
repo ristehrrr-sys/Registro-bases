@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 st.set_page_config(
-    page_title="Registro de Bases y Comandos",
+    page_title="Registro de Bases/Comandos",
     page_icon="🗳️",
     layout="wide",
 )
@@ -110,7 +110,7 @@ CARGOS = [
     "SECRETARIO(a) DE ASESORIA ELECTORAL Y DEFENSA DEL VOTO",
     "SECRETARIO(a) DE INTERVENCION GRAFICA TERRITORIAL",
     "MILITANTE", 
-    "Otro",
+    "OTRO",
     
 ]
 META_POR_BASE = 100
@@ -324,17 +324,17 @@ def fecha_hora_peru(valor):
 # ============================================================
 # ENCABEZADO Y ACCESO
 # ============================================================
-st.title("🗳️ Registro de Bases y Comandos")
+st.title("🗳️ Registro de Bases/Comandos")
 st.caption("Gestión de bases, integrantes, reuniones y asistencia general")
 
 if st.session_state.base_id is None and not st.session_state.admin_autenticado:
     st.subheader("Acceso al sistema")
     modo = st.radio(
         "Tipo de acceso",
-        ["Secretario general de base", "Administrador"],
+        ["Secretario general", "Administrador"],
         horizontal=True,
     )
-    if modo == "Secretario general de base":
+    if modo == "Secretario general":
         with st.form("inicio_sesion_base"):
             usuario_login = st.text_input("Usuario").strip()
             password_login = st.text_input("Contraseña", type="password")
@@ -1066,7 +1066,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         st.rerun()
 
 # ============================================================
-# PANEL DEL SECRETARIO GENERAL DE BASE
+# PANEL DEL SECRETARIO GENERAL DE BASE 
 # ============================================================
 if st.session_state.base_id is not None:
     base_id = st.session_state.base_id
@@ -1086,10 +1086,10 @@ if st.session_state.base_id is not None:
     st.markdown(
     f"""
     <div style="text-align: center; margin-bottom: 20px; margin-top: 10px;">
-        <div style="font-size: 12px; color: #555555; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+        <div style="font-size: 16px; color: #555555; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
             Base / Comando
         </div>
-        <div style="font-size: 16px; color: #000000; font-weight: bold; text-transform: uppercase;">
+        <div style="font-size: 18px; color: #000000; font-weight: bold; text-transform: uppercase;">
             {st.session_state.base_nombre}
         </div>
     </div>
