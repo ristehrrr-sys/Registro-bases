@@ -2,4 +2,7 @@ streamlit
 supabase
 pandas
 openpyxl
+Pillow
+requests
+qrcode[pil]
 reportlab
