@@ -1,33 +1,3 @@
-Claude
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-App corregido · PY
 import streamlit as st
 from supabase import create_client
 import hashlib
@@ -1672,5 +1642,3 @@ with st.expander("Aviso de privacidad"):
         "corrección o eliminación. No registres a nadie sin autorización documentada. "
         "La consulta pública del QR muestra únicamente datos mínimos y nunca el DNI ni el teléfono."
     )
- 
-Claude terminó la respuesta
