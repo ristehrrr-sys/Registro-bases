@@ -721,6 +721,9 @@ DISENOS_PREDEFINIDOS = {
     },
 }
  
+# Si una plantilla con imagen no tiene distribución guardada, se usa esta.
+DISENO_POR_DEFECTO = "Marcos y líneas (ejemplo Puno)"
+ 
 @st.cache_data(ttl=300, show_spinner=False)
 def cargar_diseno(plantilla_id):
     # La distribución de cada plantilla se guarda como diseno.json junto a sus imágenes.
@@ -814,25 +817,62 @@ def foto_demo():
     d.ellipse((60, 290, 340, 640), fill="#35506E")
     return im
  
+def eliminar_plantilla(p):
+    pid = p["id"]
+    # Las credenciales ya emitidas se conservan: solo dejan de apuntar a esta plantilla.
+    supabase.table("credenciales").update({"plantilla_id": None}).eq("plantilla_id", pid).execute()
+    supabase.table("plantillas_credenciales").delete().eq("id", pid).execute()
+    rutas = [r for r in (p.get("frontal_path"), p.get("posterior_path"), f"{pid}/diseno.json") if r]
+    try:
+        supabase.storage.from_(BUCKET_PLANTILLAS).remove(rutas)
+    except Exception as e:
+        logger.warning("No se pudieron borrar los archivos de la plantilla %s: %r", pid, e)
+    cargar_diseno.clear()
+    bytes_plantilla.clear()
+ 
+def bloque_eliminar(p):
+    aviso = ("Se borrarán la plantilla, sus imágenes y su distribución. Las credenciales ya emitidas "
+             "y sus QR siguen funcionando, pero no podrás volver a generarlas con este diseño.")
+    if p.get("activa"):
+        aviso += " Esta es la plantilla activa: mientras no actives otra, se usará el diseño predeterminado."
+    st.warning(f'¿Eliminar la plantilla «{p["nombre"]}»? ' + aviso)
+    k1, k2 = st.columns(2)
+    if k1.button("Sí, eliminar", key=f"del_si_{p['id']}", type="primary"):
+        try:
+            eliminar_plantilla(p)
+            st.session_state.pop(f"mostrar_del_{p['id']}", None)
+            st.session_state["mostrar_msg_plantilla"] = f'Plantilla «{p["nombre"]}» eliminada.'
+            st.rerun()
+        except Exception as e:
+            error_supabase("No se pudo eliminar la plantilla.", e)
+    if k2.button("Cancelar", key=f"del_no_{p['id']}"):
+        st.session_state.pop(f"mostrar_del_{p['id']}", None)
+        st.rerun()
+ 
 DISENO_AUTO = "Automático (distribución estándar)"
 DISENO_JSON = "Personalizado (avanzado)"
  
 def editor_diseno(p):
     actual = cargar_diseno(p["id"])
     opciones = [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()) + [DISENO_JSON]
-    indice = 0
-    if actual:
+    if actual is None:
+        indice = opciones.index(DISENO_POR_DEFECTO)
+        st.caption("Esta plantilla aún no tiene una distribución guardada: se está usando "
+                   f"«{DISENO_POR_DEFECTO}». Pulsa «Guardar distribución» para fijarla.")
+    elif actual.get("modo") == "auto":
+        indice = 0
+    else:
         indice = len(opciones) - 1
         for i, nombre in enumerate(DISENOS_PREDEFINIDOS, start=1):
             if DISENOS_PREDEFINIDOS[nombre] == actual:
                 indice = i
     sel = st.selectbox("Distribución", opciones, index=indice, key=f"dis_sel_{p['id']}")
     if sel == DISENO_AUTO:
-        diseno = None
+        diseno = {"modo": "auto"}
     elif sel in DISENOS_PREDEFINIDOS:
         diseno = copy.deepcopy(DISENOS_PREDEFINIDOS[sel])
     else:
-        base_json = actual or next(iter(DISENOS_PREDEFINIDOS.values()))
+        base_json = actual if (actual and "modo" not in actual) else next(iter(DISENOS_PREDEFINIDOS.values()))
         texto = st.text_area("Diseño (JSON, medidas entre 0 y 1)",
                              value=json.dumps(base_json, indent=1, ensure_ascii=False),
                              height=320, key=f"dis_json_{p['id']}")
@@ -879,6 +919,10 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
     diseno = None
     if lado == "frontal":
         diseno = plantilla["diseno"] if "diseno" in plantilla else cargar_diseno(plantilla.get("id"))
+        if diseno is None and plantilla.get("frontal_path"):
+            diseno = DISENOS_PREDEFINIDOS[DISENO_POR_DEFECTO]
+        elif diseno and diseno.get("modo") == "auto":
+            diseno = None
  
     if lado == "posterior":
         draw.text((int(w*.06), int(h*.18)), "VERIFICACIÓN DE CREDENCIAL",
@@ -957,7 +1001,7 @@ if token_qr:
             st.warning("Esta credencial no está vigente.")
         else:
             fila = (supabase.table("integrantes_base")
-                    .select("nombres,apellidos,cargo,base_id,dni")
+                    .select("nombres,apellidos,cargo,base_id,dni,foto_url")
                     .eq("id", cred["integrante_id"]).limit(1).execute().data or [])
             if not fila:
                 st.warning("No se encontró el registro asociado.")
@@ -965,6 +1009,11 @@ if token_qr:
                 persona = fila[0]
                 nombres_bases = [b["nombre_base"] for b in datos_bases_por_dni(persona["dni"])]
                 st.success("Credencial vigente")
+                if persona.get("foto_url"):
+                    try:
+                        st.image(persona["foto_url"], width=220, caption="Fotografía registrada")
+                    except Exception:
+                        pass
                 st.write(f"**Integrante:** {nombre_completo(persona)}")
                 st.write(f"**Cargo:** {persona.get('cargo') or 'Sin cargo'}")
                 st.write(f"**Bases:** {', '.join(nombres_bases) if nombres_bases else 'No especificadas'}")
@@ -1037,7 +1086,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         st.warning("Estás usando ADMIN_PASSWORD en texto plano. Conviene reemplazarlo por ADMIN_PASSWORD_HASH en Secrets.")
     tabs = st.tabs(["Resumen", "Crear base", "Bases e integrantes",
                     "Reuniones y asistencia", "Exportar",
-                    "Credenciales QR", "Credenciales en lote", "Plantillas"])
+                    "Credenciales QR", "Credenciales en lote", "Credenciales generadas", "Plantillas"])
  
     with tabs[0]:
         try:
@@ -1312,11 +1361,13 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 cred_actual = credencial_de_dni(integrante["dni"])
                 if cred_actual:
                     st.write(f'**Estado de la credencial:** {cred_actual["estado"]} · emitida el {str(cred_actual.get("emitida_en", ""))[:10]}')
-                    if cred_actual["estado"] == "vigente" and st.button("Revocar credencial", key="revocar_cred"):
-                        supabase.table("credenciales").update({"estado": "revocada"}).eq("id", cred_actual["id"]).execute()
+                    confirma_borrar = st.checkbox("Confirmo que quiero eliminar esta credencial",
+                                                  key=f'credencial_conf_{integrante["dni"]}')
+                    if st.button("Eliminar credencial", key="eliminar_cred", disabled=not confirma_borrar):
+                        supabase.table("credenciales").delete().eq("id", cred_actual["id"]).execute()
                         st.session_state.pop("credencial_generada", None)
                         st.session_state.pop("credencial_reverso", None)
-                        st.success("Credencial revocada. El QR dejará de mostrarse como vigente.")
+                        st.success("Credencial eliminada. Su QR ya no es válido. Puedes generar una nueva cuando quieras.")
                 if st.button("Generar / renovar credencial", type="primary"):
                     if not APP_PUBLIC_URL:
                         st.error("No se puede emitir un QR funcional hasta configurar APP_PUBLIC_URL.")
@@ -1508,6 +1559,83 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 error_supabase("No se pudo completar la generación en lote.", e)
  
     with tabs[7]:
+        st.subheader("📋 Credenciales generadas")
+        st.caption("Todas las credenciales emitidas. Marca las que quieras eliminar; las que no marques se conservan.")
+        try:
+            msg_cred = st.session_state.pop("mostrar_msg_cred", None)
+            if msg_cred:
+                st.success(msg_cred)
+            creds = traer_todo(lambda: supabase.table("credenciales")
+                               .select("id,integrante_id,estado,emitida_en")
+                               .order("emitida_en", desc=True).order("id"))
+            if not creds:
+                st.info("Aún no hay credenciales generadas.")
+            else:
+                integrantes_all = cargar_integrantes()
+                nombres_base = {b["id"]: b["nombre_base"] for b in cargar_bases()}
+                mapa_i = {i["id"]: i for i in integrantes_all}
+                bases_de_dni = {}
+                for i in integrantes_all:
+                    d = str(i.get("dni", "")).strip()
+                    nb = nombres_base.get(i["base_id"])
+                    if d and nb and nb not in bases_de_dni.setdefault(d, []):
+                        bases_de_dni[d].append(nb)
+                filas = []
+                for c in creds:
+                    i = mapa_i.get(c["integrante_id"])
+                    d = str(i.get("dni", "")).strip() if i else ""
+                    filas.append({
+                        "ID": c["id"],
+                        "Integrante": nombre_completo(i) if i else "(integrante eliminado)",
+                        "DNI": d,
+                        "Base": ", ".join(bases_de_dni.get(d, [])),
+                        "Estado": c.get("estado", ""),
+                        "Emitida": str(c.get("emitida_en", ""))[:16].replace("T", " "),
+                    })
+                f1, f2 = st.columns(2)
+                buscar = f1.text_input("Buscar por nombre o DNI", key="lote_cred_buscar").strip().lower()
+                base_f = f2.selectbox("Base", ["Todas"] + sorted(set(nombres_base.values())),
+                                      key="lote_cred_base")
+                vistas = [f for f in filas
+                          if (not buscar or buscar in f["Integrante"].lower() or buscar in f["DNI"])
+                          and (base_f == "Todas" or base_f in bases_de_dni.get(f["DNI"], []))]
+                st.write(f"**{len(vistas)}** de {len(filas)} credenciales · "
+                         f"vigentes: {sum(1 for f in filas if f['Estado'] == 'vigente')}")
+                if not vistas:
+                    st.info("No hay credenciales con ese filtro.")
+                else:
+                    limite = 300
+                    if len(vistas) > limite:
+                        st.caption(f"Se muestran las primeras {limite}. Usa el buscador o el filtro de base para ver las demás.")
+                    mostradas = vistas[:limite]
+                    n = st.session_state.get("lote_borrado_n", 0)
+                    todas = st.checkbox("Marcar todas las que se muestran", key=f"lote_marcar_{n}")
+                    df = pd.DataFrame(mostradas)
+                    df.insert(0, "Eliminar", todas)
+                    editado = st.data_editor(
+                        df, hide_index=True, use_container_width=True,
+                        disabled=[c for c in df.columns if c != "Eliminar"],
+                        column_config={"Eliminar": st.column_config.CheckboxColumn("Eliminar"), "ID": None},
+                        key=f"lote_editor_{n}_{todas}_{abs(hash((buscar, base_f)))}")
+                    marcadas = editado.loc[editado["Eliminar"], "ID"].tolist()
+                    st.write(f"Marcadas para eliminar: **{len(marcadas)}** · las demás se conservan.")
+                    ok = st.checkbox("Confirmo que quiero eliminar las credenciales marcadas. Sus QR dejarán de funcionar.",
+                                     key=f"lote_confirma_borrado_{n}")
+                    if st.button("Eliminar credenciales marcadas", type="primary",
+                                 disabled=not (marcadas and ok), key=f"lote_btn_borrar_{n}"):
+                        for k in range(0, len(marcadas), 100):
+                            supabase.table("credenciales").delete().in_("id", marcadas[k:k + 100]).execute()
+                        st.session_state["lote_borrado_n"] = n + 1
+                        st.session_state["mostrar_msg_cred"] = f"{len(marcadas)} credenciales eliminadas."
+                        st.rerun()
+                    st.download_button("Descargar esta lista (Excel)",
+                                       excel_bytes(pd.DataFrame(vistas).drop(columns=["ID"]), "Credenciales",
+                                                   titulo="Credenciales generadas"),
+                                       "credenciales_generadas.xlsx", MIME_XLSX, key="dl_creds_xlsx")
+        except Exception as e:
+            error_supabase("No se pudo cargar la lista de credenciales.", e)
+ 
+    with tabs[8]:
         st.subheader("🎨 Administrar plantillas")
         st.info("Puedes subir una imagen ya diseñada o usar la plantilla predeterminada. La imagen se utiliza como fondo; el sistema añade los datos y el QR.")
         with st.form("form_plantilla", clear_on_submit=True):
@@ -1515,7 +1643,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             frontal = st.file_uploader("Imagen frontal (PNG o JPG)", type=["png", "jpg", "jpeg"])
             posterior = st.file_uploader("Imagen posterior (opcional)", type=["png", "jpg", "jpeg"])
             distribucion = st.selectbox("Distribución de datos, foto y QR",
-                                        [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()))
+                                        [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()), index=1)
             activar_al_guardar = st.checkbox("Activar esta plantilla al guardar", value=True)
             guardar_plantilla_btn = st.form_submit_button("Guardar plantilla")
         if guardar_plantilla_btn:
@@ -1529,17 +1657,20 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     if im.width < 400 or im.height < 250:
                         st.warning("La imagen es pequeña. Se recomienda al menos 1011 × 638 píxeles.")
                     guardar_plantilla(nombre_plantilla, frontal, posterior, activar_al_guardar,
-                                      copy.deepcopy(DISENOS_PREDEFINIDOS.get(distribucion)))
+                                      copy.deepcopy(DISENOS_PREDEFINIDOS.get(distribucion) or {"modo": "auto"}))
                     st.success("Plantilla guardada correctamente.")
                     st.rerun()
                 except Exception as e:
                     error_supabase("No se pudo guardar la plantilla. Revisa el bucket y la tabla de Supabase.", e)
         st.divider()
         try:
+            mensaje_plantilla = st.session_state.pop("mostrar_msg_plantilla", None)
+            if mensaje_plantilla:
+                st.success(mensaje_plantilla)
             plantillas = listar_plantillas()
             if plantillas:
                 for p in plantillas:
-                    c1, c2, c3 = st.columns([3, 1, 1])
+                    c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
                     c1.write(f'**{p["nombre"]}**' + (" · Activa" if p.get("activa") else ""))
                     if c2.button("Vista previa", key=f"prev_{p['id']}"):
                         st.image(url_plantilla(p["frontal_path"]), caption=p["nombre"])
@@ -1547,6 +1678,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         activar_plantilla(p["id"])
                         st.success("Plantilla activada.")
                         st.rerun()
+                    if c4.button("Eliminar", key=f"del_{p['id']}"):
+                        st.session_state[f"mostrar_del_{p['id']}"] = True
+                    if st.session_state.get(f"mostrar_del_{p['id']}"):
+                        bloque_eliminar(p)
                     with st.expander(f'Distribución de datos, foto y QR — {p["nombre"]}'):
                         editor_diseno(p)
             else:
@@ -1574,7 +1709,8 @@ if st.session_state.base_id is not None:
             foto = st.file_uploader("Fotografía del integrante (opcional)", type=["jpg", "jpeg", "png"])
             cargo_sel = st.selectbox("Cargo o condición", CARGOS)
             cargo_otro = st.text_input("Especifica el cargo") if cargo_sel == "Otro" else ""
-            consentimiento = st.checkbox("Confirmo que la persona fue informada y autorizó el registro de sus datos y fotografía.")
+            consentimiento = st.checkbox("Confirmo que la persona fue informada y autorizó el registro de sus datos y fotografía, "
+                "y que su nombre, cargo y fotografía se mostrarán al escanear su credencial.")
             guardar = st.form_submit_button("Guardar integrante")
         if guardar:
             cargo_final = cargo_otro.strip() if cargo_sel == "Otro" else cargo_sel
@@ -1640,5 +1776,5 @@ with st.expander("Aviso de privacidad"):
         "son datos personales que requieren protección reforzada. Informa a cada persona "
         "sobre la finalidad, quién accede, cuánto tiempo se conservarán y cómo solicitar "
         "corrección o eliminación. No registres a nadie sin autorización documentada. "
-        "La consulta pública del QR muestra únicamente datos mínimos y nunca el DNI ni el teléfono."
+        "La consulta pública del QR muestra únicamente nombre, cargo, bases y fotografía, y nunca el DNI ni el teléfono."
     )
