@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 st.set_page_config(
     page_title="Registro de Bases y Comandos",
-    page_icon="ðŸ—³ï¸",
+    page_icon="🗳️",
     layout="wide",
 )
 
@@ -39,7 +39,7 @@ header,[data-testid="stHeader"],#MainMenu,.stDeployButton,footer,
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------
-# CONFIGURACIÃ“N Y CONEXIÃ“N
+# CONFIGURACIÓN Y CONEXIÓN
 # ---------------------------------------------------------------------
 @st.cache_resource
 def conectar_supabase():
@@ -60,29 +60,29 @@ BUCKET_PLANTILLAS = "plantillas_credenciales"
 APP_PUBLIC_URL = st.secrets.get("APP_PUBLIC_URL", "").strip().rstrip("/")
 
 # ---------------------------------------------------------------------
-# GEOGRAFÃA PUNO
+# GEOGRAFÍA PUNO
 # ---------------------------------------------------------------------
 DISTRITOS_PUNO = {
-    "AzÃ¡ngaro": ["Achaya", "Arapa", "Asillo", "AzÃ¡ngaro", "Caminaca", "Chupa", "JosÃ© Domingo Choquehuanca", "MuÃ±ani", "Potoni", "SamÃ¡n", "San AntÃ³n", "San JosÃ©", "San Juan de Salinas", "Santiago de Pupuja", "Tirapata"],
-    "Carabaya": ["Ajoyani", "Ayapata", "Coasa", "Corani", "Crucero", "Ituata", "Macusani", "Ollachea", "San GabÃ¡n", "Usicayos"],
+    "Azángaro": ["Achaya", "Arapa", "Asillo", "Azángaro", "Caminaca", "Chupa", "José Domingo Choquehuanca", "Muñani", "Potoni", "Samán", "San Antón", "San José", "San Juan de Salinas", "Santiago de Pupuja", "Tirapata"],
+    "Carabaya": ["Ajoyani", "Ayapata", "Coasa", "Corani", "Crucero", "Ituata", "Macusani", "Ollachea", "San Gabán", "Usicayos"],
     "Chucuito": ["Desaguadero", "Huacullani", "Juli", "Kelluyo", "Pisacoma", "Pomata", "Zepita"],
     "El Collao": ["Capazo", "Ilave", "Pilcuyo", "Santa Rosa"],
-    "HuancanÃ©": ["Cojata", "HuancanÃ©", "Huatasani", "Inchupalla", "Pusi", "Rosaspata", "Taraco", "Vilque Chico"],
-    "Lampa": ["Cabanilla", "Calapuja", "Lampa", "Nicasio", "Ocuviri", "Palca", "ParatÃ­a", "PucarÃ¡", "Santa LucÃ­a", "Vilavila"],
-    "Melgar": ["Antauta", "Ayaviri", "Cupi", "Llalli", "Macari", "NuÃ±oa", "Orurillo", "Santa Rosa", "Umachiri"],
+    "Huancané": ["Cojata", "Huancané", "Huatasani", "Inchupalla", "Pusi", "Rosaspata", "Taraco", "Vilque Chico"],
+    "Lampa": ["Cabanilla", "Calapuja", "Lampa", "Nicasio", "Ocuviri", "Palca", "Paratía", "Pucará", "Santa Lucía", "Vilavila"],
+    "Melgar": ["Antauta", "Ayaviri", "Cupi", "Llalli", "Macari", "Nuñoa", "Orurillo", "Santa Rosa", "Umachiri"],
     "Moho": ["Conima", "Huayrapata", "Moho", "Tilali"],
-    "Puno": ["Acora", "AmantanÃ­", "Atuncolla", "Capachica", "Chucuito", "Coata", "Huata", "MaÃ±azo", "Paucarcolla", "Pichacani", "PlaterÃ­a", "Puno", "San Antonio", "Tiquillaca", "Vilque"],
+    "Puno": ["Acora", "Amantaní", "Atuncolla", "Capachica", "Chucuito", "Coata", "Huata", "Mañazo", "Paucarcolla", "Pichacani", "Platería", "Puno", "San Antonio", "Tiquillaca", "Vilque"],
     "San Antonio de Putina": ["Ananea", "Pedro Vilca Apaza", "Putina", "Quilcapuncu", "Sina"],
-    "San RomÃ¡n": ["Cabana", "Cabanillas", "Caracoto", "Juliaca"],
+    "San Román": ["Cabana", "Cabanillas", "Caracoto", "Juliaca"],
     "Sandia": ["Alto Inambari", "Cuyocuyo", "Limbani", "Patambuco", "Phara", "Quiaca", "San Juan del Oro", "San Pedro de Putina Punco", "Sandia", "Yanahuaya"],
     "Yunguyo": ["Anapia", "Copani", "Cuturapi", "Ollaraya", "Tinicachi", "Unicachi", "Yunguyo"],
 }
 PROVINCIAS = sorted(DISTRITOS_PUNO.keys())
-CARGOS = ["Militante", "Coordinador de base", "Secretario de organizaciÃ³n",
-          "Secretario de economÃ­a", "Secretario de actas", "Fiscal", "Otro"]
+CARGOS = ["Militante", "Coordinador de base", "Secretario de organización",
+          "Secretario de economía", "Secretario de actas", "Fiscal", "Otro"]
 
 # ---------------------------------------------------------------------
-# SEGURIDAD Y SESIÃ“N
+# SEGURIDAD Y SESIÓN
 # ---------------------------------------------------------------------
 def crear_hash(password: str) -> str:
     salt = secrets.token_hex(16)
@@ -117,7 +117,7 @@ def clave_persona_legacy(dni) -> str:
     return hash_texto(str(dni).strip())
 
 def admin_valido(usuario: str, password: str) -> bool:
-    # Compatibilidad con los Secrets de la aplicaciÃ³n anterior:
+    # Compatibilidad con los Secrets de la aplicación anterior:
     # se acepta ADMIN_PASSWORD (texto en Secrets) o ADMIN_PASSWORD_HASH.
     esperado_usuario = str(st.secrets.get("ADMIN_USER", "")).strip()
     esperado_hash = str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip()
@@ -175,7 +175,7 @@ for k, v in {
 # DATOS
 # ---------------------------------------------------------------------
 def traer_todo(construir, tam=1000):
-    # Supabase devuelve como mÃ¡ximo 1000 filas por consulta; se pide por pÃ¡ginas.
+    # Supabase devuelve como máximo 1000 filas por consulta; se pide por páginas.
     filas, ini = [], 0
     while True:
         bloque = construir().range(ini, ini + tam - 1).execute().data or []
@@ -210,7 +210,7 @@ def dataframe_integrantes(filas, incluir_base=False):
             "Apellidos": f.get("apellidos", ""),
             "DNI": f.get("dni", ""),
             "Celular": f.get("celular", ""),
-            "Cargo / condiciÃ³n": f.get("cargo") or "",
+            "Cargo / condición": f.get("cargo") or "",
             "Fecha de registro": str(f.get("fecha_registro", ""))[:10],
         }
         if incluir_base:
@@ -258,7 +258,7 @@ def excel_multihoja(hojas, titulo=None):
                 for celda in fila:
                     if isinstance(celda.value, str):
                         if celda.value.startswith("="):
-                            celda.data_type = "s"   # texto, nunca fÃ³rmula
+                            celda.data_type = "s"   # texto, nunca fórmula
                         celda.number_format = "@"
     archivo.seek(0)
     return archivo.getvalue()
@@ -266,8 +266,8 @@ def excel_multihoja(hojas, titulo=None):
 def excel_bytes(df, hoja="Registros", titulo=None):
     return excel_multihoja({hoja: df}, titulo)
 
-COLUMNAS_DETALLE = ["N.Âº", "Base", "Provincia", "Distrito", "Apellidos", "Nombres",
-                    "DNI", "Celular", "Cargo / condiciÃ³n", "Fecha de registro"]
+COLUMNAS_DETALLE = ["N.º", "Base", "Provincia", "Distrito", "Apellidos", "Nombres",
+                    "DNI", "Celular", "Cargo / condición", "Fecha de registro"]
 
 def dataframe_detallado(filas, mapa_bases):
     def orden(f):
@@ -278,16 +278,16 @@ def dataframe_detallado(filas, mapa_bases):
     for i, f in enumerate(sorted(filas, key=orden), start=1):
         b = mapa_bases.get(f.get("base_id"), {})
         salida.append({
-            "N.Âº": i, "Base": b.get("nombre_base", ""), "Provincia": b.get("provincia") or "",
+            "N.º": i, "Base": b.get("nombre_base", ""), "Provincia": b.get("provincia") or "",
             "Distrito": b.get("distrito") or "", "Apellidos": f.get("apellidos", ""),
             "Nombres": f.get("nombres", ""), "DNI": f.get("dni", ""),
-            "Celular": f.get("celular", ""), "Cargo / condiciÃ³n": f.get("cargo") or "",
+            "Celular": f.get("celular", ""), "Cargo / condición": f.get("cargo") or "",
             "Fecha de registro": str(f.get("fecha_registro", ""))[:10],
         })
     return pd.DataFrame(salida, columns=COLUMNAS_DETALLE)
 
 def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
-    # Lista imprimible de una base. con_firma=True aÃ±ade columna de firma (asistencia).
+    # Lista imprimible de una base. con_firma=True añade columna de firma (asistencia).
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -311,10 +311,10 @@ def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
     ordenados = sorted(miembros, key=lambda m: (str(m.get("apellidos", "")).lower(),
                                                 str(m.get("nombres", "")).lower()))
     if con_firma:
-        cabecera = ["N.Âº", "Apellidos y nombres", "DNI", "Cargo", "Firma"]
+        cabecera = ["N.º", "Apellidos y nombres", "DNI", "Cargo", "Firma"]
         anchos = [1.0*cm, 6.2*cm, 2.2*cm, 3.6*cm, 5.0*cm]
     else:
-        cabecera = ["N.Âº", "Apellidos y nombres", "DNI", "Celular", "Cargo"]
+        cabecera = ["N.º", "Apellidos y nombres", "DNI", "Celular", "Cargo"]
         anchos = [1.0*cm, 6.6*cm, 2.2*cm, 2.8*cm, 5.4*cm]
     filas = [[p(h, t_enc) for h in cabecera]]
     for i, m in enumerate(ordenados, start=1):
@@ -336,14 +336,14 @@ def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
     elementos = [p(titulo, t_titulo)]
     if subtitulo:
         elementos.append(p(subtitulo, t_sub))
-    elementos.append(p(f"Total: {len(ordenados)} integrantes Â· {date.today().strftime('%d/%m/%Y')}", t_sub))
+    elementos.append(p(f"Total: {len(ordenados)} integrantes · {date.today().strftime('%d/%m/%Y')}", t_sub))
     elementos += [Spacer(1, 0.4*cm), tabla]
 
     def pie(canvas, doc_):
         canvas.saveState()
         canvas.setFont("Helvetica", 8)
         canvas.drawString(1.5*cm, 0.9*cm, "Documento con datos personales: uso interno.")
-        canvas.drawRightString(A4[0] - 1.5*cm, 0.9*cm, f"PÃ¡gina {doc_.page}")
+        canvas.drawRightString(A4[0] - 1.5*cm, 0.9*cm, f"Página {doc_.page}")
         canvas.restoreState()
 
     doc.build(elementos, onFirstPage=pie, onLaterPages=pie)
@@ -354,11 +354,11 @@ def botones_lista(base, miembros, clave):
     nombre = base.get("nombre_base", "base")
     archivo = nombre_archivo_seguro(nombre)
     ubic = ubicacion_texto(base)
-    titulo = f"Lista de integrantes â€” {nombre}"
+    titulo = f"Lista de integrantes — {nombre}"
     df = dataframe_detallado(miembros, {base.get("id"): base})
     c1, c2, c3 = st.columns(3)
     c1.download_button("Descargar Excel",
-                       excel_bytes(df, "Integrantes", titulo=f"{titulo} Â· {ubic}" if ubic else titulo),
+                       excel_bytes(df, "Integrantes", titulo=f"{titulo} · {ubic}" if ubic else titulo),
                        f"integrantes_{archivo}.xlsx", MIME_XLSX, key=f"xl_{clave}")
     try:
         c2.download_button("Descargar PDF (lista)", pdf_lista(titulo, ubic, miembros),
@@ -367,11 +367,11 @@ def botones_lista(base, miembros, clave):
                            pdf_lista(titulo, ubic, miembros, con_firma=True),
                            f"firmas_{archivo}.pdf", "application/pdf", key=f"pdff_{clave}")
     except ImportError:
-        st.caption("Los PDF requieren instalar reportlab (agrÃ©galo a requirements.txt).")
+        st.caption("Los PDF requieren instalar reportlab (agrégalo a requirements.txt).")
     except Exception as e:
         logger.warning("PDF de lista no disponible: %r", e)
-        st.caption("El PDF no estÃ¡ disponible en este momento.")
-    st.caption("Estos archivos contienen datos personales (DNI y celular). ManÃ©jalos con cuidado.")
+        st.caption("El PDF no está disponible en este momento.")
+    st.caption("Estos archivos contienen datos personales (DNI y celular). Manéjalos con cuidado.")
 
 logger = logging.getLogger("registro_bases")
 
@@ -380,8 +380,8 @@ def error_supabase(mensaje, error=None):
     logger.error("[%s] %s | %r", ref, mensaje, error)
     st.error(f"{mensaje} (ref. {ref})")
     if error and st.session_state.get("es_admin"):
-        st.caption(f"Detalle tÃ©cnico (solo visible para el administrador): {str(error)[:500]}")
-    st.caption("Si el problema continÃºa, comunica la referencia al administrador.")
+        st.caption(f"Detalle técnico (solo visible para el administrador): {str(error)[:500]}")
+    st.caption("Si el problema continúa, comunica la referencia al administrador.")
 
 def subir_archivo(bucket, path, contenido, content_type):
     supabase.storage.from_(bucket).upload(
@@ -396,13 +396,13 @@ def ext_imagen(archivo) -> str:
     return "png" if getattr(archivo, "type", "") == "image/png" else "jpg"
 
 def procesar_foto(archivo, lado_max=900) -> bytes:
-    # Valida que sea una imagen real, corrige la orientaciÃ³n, reduce el tamaÃ±o
-    # y la guarda como JPEG nuevo (asÃ­ se eliminan metadatos EXIF/GPS).
+    # Valida que sea una imagen real, corrige la orientación, reduce el tamaño
+    # y la guarda como JPEG nuevo (así se eliminan metadatos EXIF/GPS).
     try:
         im = Image.open(io.BytesIO(archivo.getvalue()))
         im.load()
     except Exception:
-        raise ValueError("La fotografÃ­a no es una imagen vÃ¡lida.")
+        raise ValueError("La fotografía no es una imagen válida.")
     im = ImageOps.exif_transpose(im).convert("RGB")
     im.thumbnail((lado_max, lado_max))
     salida = io.BytesIO()
@@ -542,7 +542,7 @@ def _png(imagen):
     return b.getvalue()
 
 def generar_lote(personas, plantilla, dni_bases, progreso=None):
-    # Genera las imÃ¡genes en memoria. No toca la base de datos: eso se hace despuÃ©s.
+    # Genera las imágenes en memoria. No toca la base de datos: eso se hace después.
     fotos = precargar_fotos(list({p["foto_url"] for p in personas if p.get("foto_url")}))
     resultados, errores = [], []
     for i, p in enumerate(personas, start=1):
@@ -614,7 +614,7 @@ def pdf_credenciales(resultados, hoja_a4=False):
     cw, ch = 85.6 * mm, 54 * mm
     buf = io.BytesIO()
     if not hoja_a4:
-        # Una credencial por pÃ¡gina, respetando la proporciÃ³n de la imagen.
+        # Una credencial por página, respetando la proporción de la imagen.
         c = canvas.Canvas(buf, pagesize=(cw, ch))
         for r in resultados:
             for clave in ("frente_png", "reverso_png"):
@@ -672,7 +672,7 @@ def crear_qr(url):
 @lru_cache(maxsize=128)
 def cargar_fuente(tamano, negrita=False):
     # Busca una fuente real en el sistema. Si el servidor no tiene ninguna, usa la
-    # interna de Pillow con el tamaÃ±o pedido (antes salÃ­a diminuta e ignoraba el tamaÃ±o).
+    # interna de Pillow con el tamaño pedido (antes salía diminuta e ignoraba el tamaño).
     def ruta(carpeta, normal, bold):
         return f"{carpeta}/{bold if negrita else normal}"
     candidatos = [
@@ -687,7 +687,7 @@ def cargar_fuente(tamano, negrita=False):
         "arialbd.ttf" if negrita else "arial.ttf",
     ]
     try:
-        import matplotlib   # si estÃ¡ instalado, trae DejaVu incluida
+        import matplotlib   # si está instalado, trae DejaVu incluida
         base = os.path.join(matplotlib.get_data_path(), "fonts", "ttf")
         candidatos.append(os.path.join(base, "DejaVuSans-Bold.ttf" if negrita else "DejaVuSans.ttf"))
     except Exception:
@@ -719,10 +719,10 @@ def ajustar_texto(dibujo, texto, fuente, ancho_max):
     return lineas or [""]
 
 # Distribuciones predefinidas. Todas las medidas son proporciones (0 a 1) del ancho y
-# del alto de la imagen, asÃ­ funcionan aunque la plantilla tenga otro tamaÃ±o.
-# En "campos", "y" es la altura de la lÃ­nea sobre la que se escribe el dato.
+# del alto de la imagen, así funcionan aunque la plantilla tenga otro tamaño.
+# En "campos", "y" es la altura de la línea sobre la que se escribe el dato.
 DISENOS_PREDEFINIDOS = {
-    "Marcos y lÃ­neas (ejemplo Puno)": {
+    "Marcos y líneas (ejemplo Puno)": {
         "version": 1,
         "foto": {"x": 0.0410, "y": 0.3037, "w": 0.2201, "h": 0.3750},
         "qr": {"x": 0.8268, "y": 0.5381, "w": 0.1458, "h": 0.1992},
@@ -741,12 +741,12 @@ DISENOS_PREDEFINIDOS = {
     },
 }
 
-# Si una plantilla con imagen no tiene distribuciÃ³n guardada, se usa esta.
-DISENO_POR_DEFECTO = "Marcos y lÃ­neas (ejemplo Puno)"
+# Si una plantilla con imagen no tiene distribución guardada, se usa esta.
+DISENO_POR_DEFECTO = "Marcos y líneas (ejemplo Puno)"
 
 @st.cache_data(ttl=300, show_spinner=False)
 def cargar_diseno(plantilla_id):
-    # La distribuciÃ³n de cada plantilla se guarda como diseno.json junto a sus imÃ¡genes.
+    # La distribución de cada plantilla se guarda como diseno.json junto a sus imágenes.
     if not plantilla_id:
         return None
     try:
@@ -771,7 +771,7 @@ def guardar_diseno(plantilla_id, diseno):
     cargar_diseno.clear()
 
 def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=True):
-    # Escribe sobre una lÃ­nea: reduce la letra si no cabe y, en Ãºltimo caso, recorta con "â€¦".
+    # Escribe sobre una línea: reduce la letra si no cabe y, en último caso, recorta con "…".
     t = tam
     fuente = cargar_fuente(t, negrita)
     minimo = max(10, int(tam * 0.55))
@@ -779,9 +779,9 @@ def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=Tru
         t -= 1
         fuente = cargar_fuente(t, negrita)
     if draw.textbbox((0, 0), texto, font=fuente)[2] > ancho_max:
-        while len(texto) > 1 and draw.textbbox((0, 0), texto + "â€¦", font=fuente)[2] > ancho_max:
+        while len(texto) > 1 and draw.textbbox((0, 0), texto + "…", font=fuente)[2] > ancho_max:
             texto = texto[:-1]
-        texto = texto.rstrip() + "â€¦"
+        texto = texto.rstrip() + "…"
     try:
         draw.text((x, y_base), texto, fill=color, font=fuente, anchor="ls")
     except Exception:
@@ -851,17 +851,17 @@ def eliminar_plantilla(p):
     bytes_plantilla.clear()
 
 def bloque_eliminar(p):
-    aviso = ("Se borrarÃ¡n la plantilla, sus imÃ¡genes y su distribuciÃ³n. Las credenciales ya emitidas "
-             "y sus QR siguen funcionando, pero no podrÃ¡s volver a generarlas con este diseÃ±o.")
+    aviso = ("Se borrarán la plantilla, sus imágenes y su distribución. Las credenciales ya emitidas "
+             "y sus QR siguen funcionando, pero no podrás volver a generarlas con este diseño.")
     if p.get("activa"):
-        aviso += " Esta es la plantilla activa: mientras no actives otra, se usarÃ¡ el diseÃ±o predeterminado."
-    st.warning(f'Â¿Eliminar la plantilla Â«{p["nombre"]}Â»? ' + aviso)
+        aviso += " Esta es la plantilla activa: mientras no actives otra, se usará el diseño predeterminado."
+    st.warning(f'¿Eliminar la plantilla «{p["nombre"]}»? ' + aviso)
     k1, k2 = st.columns(2)
-    if k1.button("SÃ­, eliminar", key=f"del_si_{p['id']}", type="primary"):
+    if k1.button("Sí, eliminar", key=f"del_si_{p['id']}", type="primary"):
         try:
             eliminar_plantilla(p)
             st.session_state.pop(f"mostrar_del_{p['id']}", None)
-            st.session_state["mostrar_msg_plantilla"] = f'Plantilla Â«{p["nombre"]}Â» eliminada.'
+            st.session_state["mostrar_msg_plantilla"] = f'Plantilla «{p["nombre"]}» eliminada.'
             st.rerun()
         except Exception as e:
             error_supabase("No se pudo eliminar la plantilla.", e)
@@ -869,7 +869,7 @@ def bloque_eliminar(p):
         st.session_state.pop(f"mostrar_del_{p['id']}", None)
         st.rerun()
 
-DISENO_AUTO = "AutomÃ¡tico (distribuciÃ³n estÃ¡ndar)"
+DISENO_AUTO = "Automático (distribución estándar)"
 DISENO_JSON = "Personalizado (avanzado)"
 
 def editor_diseno(p):
@@ -877,8 +877,8 @@ def editor_diseno(p):
     opciones = [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()) + [DISENO_JSON]
     if actual is None:
         indice = opciones.index(DISENO_POR_DEFECTO)
-        st.caption("Esta plantilla aÃºn no tiene una distribuciÃ³n guardada: se estÃ¡ usando "
-                   f"Â«{DISENO_POR_DEFECTO}Â». Pulsa Â«Guardar distribuciÃ³nÂ» para fijarla.")
+        st.caption("Esta plantilla aún no tiene una distribución guardada: se está usando "
+                   f"«{DISENO_POR_DEFECTO}». Pulsa «Guardar distribución» para fijarla.")
     elif actual.get("modo") == "auto":
         indice = 0
     else:
@@ -886,50 +886,50 @@ def editor_diseno(p):
         for i, nombre in enumerate(DISENOS_PREDEFINIDOS, start=1):
             if DISENOS_PREDEFINIDOS[nombre] == actual:
                 indice = i
-    sel = st.selectbox("DistribuciÃ³n", opciones, index=indice, key=f"dis_sel_{p['id']}")
+    sel = st.selectbox("Distribución", opciones, index=indice, key=f"dis_sel_{p['id']}")
     if sel == DISENO_AUTO:
         diseno = {"modo": "auto"}
     elif sel in DISENOS_PREDEFINIDOS:
         diseno = copy.deepcopy(DISENOS_PREDEFINIDOS[sel])
     else:
         base_json = actual if (actual and "modo" not in actual) else next(iter(DISENOS_PREDEFINIDOS.values()))
-        texto = st.text_area("DiseÃ±o (JSON, medidas entre 0 y 1)",
+        texto = st.text_area("Diseño (JSON, medidas entre 0 y 1)",
                              value=json.dumps(base_json, indent=1, ensure_ascii=False),
                              height=320, key=f"dis_json_{p['id']}")
         try:
             diseno = json.loads(texto)
         except ValueError:
-            st.error("El JSON no es vÃ¡lido.")
+            st.error("El JSON no es válido.")
             return
     c1, c2 = st.columns(2)
     if c1.button("Vista previa", key=f"dis_prev_{p['id']}"):
         muestra = {"nombres": "Juan Carlos", "apellidos": "Quispe Mamani", "dni": "12345678",
                    "cargo": "Coordinador de base", "nombre_base": "Base Los Andes Juliaca",
-                   "provincia": "San RomÃ¡n", "distrito": "Juliaca"}
+                   "provincia": "San Román", "distrito": "Juliaca"}
         try:
             img = componer_credencial(muestra, dict(p, diseno=diseno), "https://ejemplo.pe/?verificar=demo",
                                       "frontal", foto_img=foto_demo())
             st.image(img, caption="Vista previa con datos de ejemplo")
         except Exception as e:
             error_supabase("No se pudo generar la vista previa.", e)
-    if c2.button("Guardar distribuciÃ³n", key=f"dis_guardar_{p['id']}"):
+    if c2.button("Guardar distribución", key=f"dis_guardar_{p['id']}"):
         try:
             guardar_diseno(p["id"], diseno)
-            st.success("DistribuciÃ³n guardada. Se usarÃ¡ en las prÃ³ximas credenciales.")
+            st.success("Distribución guardada. Se usará en las próximas credenciales.")
         except Exception as e:
-            error_supabase("No se pudo guardar la distribuciÃ³n.", e)
+            error_supabase("No se pudo guardar la distribución.", e)
 
 def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=None):
     path = plantilla.get("frontal_path") if lado == "frontal" else plantilla.get("posterior_path")
     if path:
         lienzo = imagen_plantilla(path)
     else:
-        # Plantilla predeterminada si no se cargÃ³ una imagen.
+        # Plantilla predeterminada si no se cargó una imagen.
         lienzo = Image.new("RGBA", (1011, 638), "#F4F7FB")
         d = ImageDraw.Draw(lienzo)
         d.rounded_rectangle((8, 8, 1003, 630), radius=28, outline="#163B65", width=12)
         d.rectangle((12, 12, 999, 125), fill="#163B65")
-        d.text((45, 35), "CREDENCIAL DE IDENTIFICACIÃ“N", fill="white",
+        d.text((45, 35), "CREDENCIAL DE IDENTIFICACIÓN", fill="white",
                font=cargar_fuente(38, True))
         d.text((45, 82), "REGISTRO DE BASES Y COMANDOS", fill="#E7EEF7",
                font=cargar_fuente(20))
@@ -945,10 +945,10 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
             diseno = None
 
     if lado == "posterior":
-        draw.text((int(w*.06), int(h*.18)), "VERIFICACIÃ“N DE CREDENCIAL",
+        draw.text((int(w*.06), int(h*.18)), "VERIFICACIÓN DE CREDENCIAL",
                   fill="#17324D", font=cargar_fuente(max(18, int(h*.045)), True))
         draw.text((int(w*.06), int(h*.30)),
-                  "Escanea el cÃ³digo QR para consultar su vigencia.",
+                  "Escanea el código QR para consultar su vigencia.",
                   fill="#202020", font=cargar_fuente(max(14, int(h*.027))))
         qr = crear_qr(qr_url)
         qsize = int(min(w, h) * .48)
@@ -998,7 +998,7 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
         f"DNI: {integrante.get('dni','')}",
         f"Cargo: {integrante.get('cargo') or 'Sin cargo'}",
         f"Base: {integrante.get('nombre_base') or 'No especificada'}",
-        f"UbicaciÃ³n: {integrante.get('provincia') or ''} / {integrante.get('distrito') or ''}",
+        f"Ubicación: {integrante.get('provincia') or ''} / {integrante.get('distrito') or ''}",
     ]
     for campo in campos:
         for linea in ajustar_texto(draw, campo, fuente, ancho_texto)[:2]:
@@ -1007,43 +1007,43 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
     return lienzo.convert("RGB")
 
 # ---------------------------------------------------------------------
-# VERIFICACIÃ“N PÃšBLICA DEL QR
+# VERIFICACIÓN PÚBLICA DEL QR
 # ---------------------------------------------------------------------
-st.title("ðŸ—³ï¸ Registro de Bases y Comandos")
+st.title("🗳️ Registro de Bases y Comandos")
 token_qr = st.query_params.get("verificar")
 if token_qr:
-    st.subheader("VerificaciÃ³n de credencial")
+    st.subheader("Verificación de credencial")
     try:
         cred = obtener_credencial(str(token_qr))
         if not cred:
-            st.error("CÃ³digo no vÃ¡lido o credencial no encontrada.")
+            st.error("Código no válido o credencial no encontrada.")
         elif cred["estado"] != "vigente":
-            st.warning("Esta credencial no estÃ¡ vigente.")
+            st.warning("Esta credencial no está vigente.")
         else:
             fila = (supabase.table("integrantes_base")
                     .select("nombres,apellidos,cargo,base_id,dni,foto_url")
                     .eq("id", cred["integrante_id"]).limit(1).execute().data or [])
             if not fila:
-                st.warning("No se encontrÃ³ el registro asociado.")
+                st.warning("No se encontró el registro asociado.")
             else:
                 persona = fila[0]
                 nombres_bases = [b["nombre_base"] for b in datos_bases_por_dni(persona["dni"])]
                 st.success("Credencial vigente")
                 if persona.get("foto_url"):
                     try:
-                        st.image(persona["foto_url"], width=220, caption="FotografÃ­a registrada")
+                        st.image(persona["foto_url"], width=220, caption="Fotografía registrada")
                     except Exception:
                         pass
                 st.write(f"**Integrante:** {nombre_completo(persona)}")
                 st.write(f"**Cargo:** {persona.get('cargo') or 'Sin cargo'}")
                 st.write(f"**Bases:** {', '.join(nombres_bases) if nombres_bases else 'No especificadas'}")
                 st.caption(f"Emitida el {str(cred.get('emitida_en', ''))[:10]}. "
-                           "Por privacidad, esta consulta pÃºblica no muestra el DNI ni el telÃ©fono.")
+                           "Por privacidad, esta consulta pública no muestra el DNI ni el teléfono.")
     except Exception as e:
         error_supabase("No se pudo verificar la credencial.", e)
     st.stop()
 
-st.caption("GestiÃ³n de bases, integrantes, reuniones, asistencia y credenciales verificables.")
+st.caption("Gestión de bases, integrantes, reuniones, asistencia y credenciales verificables.")
 
 # ---------------------------------------------------------------------
 # ACCESO
@@ -1054,7 +1054,7 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
     if modo == "Responsable de base":
         with st.form("login_base"):
             usuario_login = st.text_input("Usuario").strip()
-            password_login = st.text_input("ContraseÃ±a", type="password")
+            password_login = st.text_input("Contraseña", type="password")
             entrar = st.form_submit_button("Ingresar", use_container_width=True)
         clave_rl = "base:" + usuario_login.lower()
         espera = segundos_bloqueo(clave_rl) if entrar else 0
@@ -1076,13 +1076,13 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
                     st.rerun()
                 else:
                     registrar_fallo(clave_rl)
-                    st.error("Usuario o contraseÃ±a incorrectos.")
+                    st.error("Usuario o contraseña incorrectos.")
             except Exception as e:
                 error_supabase("No se pudo comprobar el acceso.", e)
     else:
         with st.form("login_admin"):
             u = st.text_input("Usuario administrador")
-            p = st.text_input("ContraseÃ±a de administrador", type="password")
+            p = st.text_input("Contraseña de administrador", type="password")
             entrar_admin = st.form_submit_button("Ingresar como administrador", use_container_width=True)
         if entrar_admin:
             espera = segundos_bloqueo("admin")
@@ -1101,9 +1101,9 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
 # PANEL ADMINISTRADOR
 # ---------------------------------------------------------------------
 if st.session_state.admin_autenticado and st.session_state.es_admin:
-    st.success("SesiÃ³n de administrador")
+    st.success("Sesión de administrador")
     if not str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip():
-        st.warning("EstÃ¡s usando ADMIN_PASSWORD en texto plano. Conviene reemplazarlo por ADMIN_PASSWORD_HASH en Secrets.")
+        st.warning("Estás usando ADMIN_PASSWORD en texto plano. Conviene reemplazarlo por ADMIN_PASSWORD_HASH en Secrets.")
     tabs = st.tabs(["Resumen", "Crear base", "Bases e integrantes",
                     "Reuniones y asistencia", "Exportar",
                     "Credenciales QR", "Credenciales en lote", "Credenciales generadas", "Plantillas"])
@@ -1126,7 +1126,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.dataframe(df.groupby("Provincia").size().reset_index(name="Cantidad"),
                              use_container_width=True, hide_index=True)
             else:
-                st.info("TodavÃ­a no hay bases registradas.")
+                st.info("Todavía no hay bases registradas.")
         except Exception as e:
             error_supabase("No se pudo cargar el resumen.", e)
 
@@ -1139,26 +1139,26 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds,
                                     disabled=not ds)
             usuario = st.text_input("Crear usuario de la base").strip()
-            password = st.text_input("ContraseÃ±a inicial (mÃ­nimo 10 caracteres, con letras y nÃºmeros)", type="password")
-            confirmar = st.text_input("Confirmar contraseÃ±a", type="password")
+            password = st.text_input("Contraseña inicial (mínimo 10 caracteres, con letras y números)", type="password")
+            confirmar = st.text_input("Confirmar contraseña", type="password")
             acepta = st.checkbox("Confirmo que estoy autorizado para crear esta cuenta.")
             crear = st.form_submit_button("Crear base")
         if crear:
             if not nombre.strip() or provincia not in DISTRITOS_PUNO or distrito not in ds:
                 st.warning("Completa el nombre, la provincia y el distrito.")
             elif not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", usuario):
-                st.warning("El usuario debe tener de 3 a 40 caracteres vÃ¡lidos.")
+                st.warning("El usuario debe tener de 3 a 40 caracteres válidos.")
             elif not (10 <= len(password) <= 64 and re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
-                st.warning("La contraseÃ±a debe tener de 10 a 64 caracteres, con al menos una letra y un nÃºmero.")
+                st.warning("La contraseña debe tener de 10 a 64 caracteres, con al menos una letra y un número.")
             elif password != confirmar:
-                st.warning("Las contraseÃ±as no coinciden.")
+                st.warning("Las contraseñas no coinciden.")
             elif not acepta:
-                st.warning("Confirma la autorizaciÃ³n.")
+                st.warning("Confirma la autorización.")
             else:
                 try:
                     existe = supabase.table("bases_campana").select("id").eq("usuario", usuario).limit(1).execute()
                     if existe.data:
-                        st.error("Ese usuario ya estÃ¡ ocupado.")
+                        st.error("Ese usuario ya está ocupado.")
                     else:
                         supabase.table("bases_campana").insert({
                             "nombre_base": nombre.strip(), "provincia": provincia,
@@ -1174,7 +1174,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         try:
             bases = cargar_bases()
             if bases:
-                mapa = {f'{b["nombre_base"]} â€” {b.get("provincia") or ""}/{b.get("distrito") or ""} (ID {b["id"]})': b for b in bases}
+                mapa = {f'{b["nombre_base"]} — {b.get("provincia") or ""}/{b.get("distrito") or ""} (ID {b["id"]})': b for b in bases}
                 label = st.selectbox("Seleccionar base", list(mapa.keys()))
                 bsel = mapa[label]
                 miembros = cargar_integrantes(bsel["id"])
@@ -1195,31 +1195,31 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
     with tabs[3]:
         st.subheader("Reuniones y asistencia")
         with st.form("crear_reunion"):
-            nr = st.text_input("Nombre de la reuniÃ³n")
-            fr = st.date_input("Fecha de la reuniÃ³n", value=date.today())
+            nr = st.text_input("Nombre de la reunión")
+            fr = st.date_input("Fecha de la reunión", value=date.today())
             lr = st.text_input("Lugar (opcional)")
-            crear_r = st.form_submit_button("Crear reuniÃ³n")
+            crear_r = st.form_submit_button("Crear reunión")
         if crear_r:
             if not nr.strip():
-                st.warning("Escribe el nombre de la reuniÃ³n.")
+                st.warning("Escribe el nombre de la reunión.")
             else:
                 try:
                     supabase.table("reuniones").insert({
                         "nombre": nr.strip(), "fecha": fr.isoformat(),
                         "lugar": lr.strip() or None
                     }).execute()
-                    st.success("ReuniÃ³n creada.")
+                    st.success("Reunión creada.")
                 except Exception as e:
-                    error_supabase("No se pudo crear la reuniÃ³n.", e)
+                    error_supabase("No se pudo crear la reunión.", e)
         st.divider()
         try:
             reuniones = (supabase.table("reuniones").select("id,nombre,fecha,lugar")
                          .order("fecha", desc=True).execute().data or [])
             bases = cargar_bases()
             if reuniones and bases:
-                rm = {f'{r["fecha"]} â€” {r["nombre"]} (ID {r["id"]})': r for r in reuniones}
-                bm = {f'{b["nombre_base"]} â€” {b.get("provincia") or ""}/{b.get("distrito") or ""} (ID {b["id"]})': b for b in bases}
-                rsel = rm[st.selectbox("Seleccionar reuniÃ³n", list(rm.keys()))]
+                rm = {f'{r["fecha"]} — {r["nombre"]} (ID {r["id"]})': r for r in reuniones}
+                bm = {f'{b["nombre_base"]} — {b.get("provincia") or ""}/{b.get("distrito") or ""} (ID {b["id"]})': b for b in bases}
+                rsel = rm[st.selectbox("Seleccionar reunión", list(rm.keys()))]
                 bsel = bm[st.selectbox("Seleccionar base para pasar lista", list(bm.keys()))]
                 miembros = cargar_integrantes(bsel["id"])
                 asistencia = (supabase.table("asistencias")
@@ -1230,11 +1230,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 if miembros:
                     for m in miembros:
                         c1, c2 = st.columns([4, 1])
-                        c1.write(f'**{nombre_completo(m)}** Â· {m.get("cargo") or "Sin cargo"}')
+                        c1.write(f'**{nombre_completo(m)}** · {m.get("cargo") or "Sin cargo"}')
                         ya = estado.get(m["id"], False)
                         if ya:
                             presentes += 1
-                            c2.button("âœ“ Presente", key=f"pres_{rsel['id']}_{m['id']}", disabled=True,
+                            c2.button("✓ Presente", key=f"pres_{rsel['id']}_{m['id']}", disabled=True,
                                       use_container_width=True)
                         elif c2.button("Marcar presente", key=f"mar_{rsel['id']}_{m['id']}",
                                        use_container_width=True):
@@ -1247,7 +1247,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 else:
                     st.info("Esta base no tiene integrantes.")
                 st.divider()
-                st.subheader("Historial de la reuniÃ³n")
+                st.subheader("Historial de la reunión")
                 historial = (supabase.table("asistencias")
                              .select("integrante_id,presente,integrantes_base(nombres,apellidos,dni,cargo)")
                              .eq("reunion_id", rsel["id"]).eq("presente", True)
@@ -1261,19 +1261,19 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     } for a in historial])
                     st.dataframe(historial_df, use_container_width=True, hide_index=True)
                     st.download_button(
-                        "Descargar asistencia de esta reuniÃ³n (Excel)",
+                        "Descargar asistencia de esta reunión (Excel)",
                         excel_bytes(historial_df, "Asistencia"),
                         f"asistencia_reunion_{rsel['id']}.xlsx",
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                 else:
-                    st.info("TodavÃ­a no se ha marcado a nadie como presente.")
+                    st.info("Todavía no se ha marcado a nadie como presente.")
             elif not reuniones:
-                st.info("Primero crea una reuniÃ³n.")
+                st.info("Primero crea una reunión.")
             else:
                 st.info("Primero registra una base.")
         except Exception as e:
-            error_supabase("No se pudo cargar el mÃ³dulo de asistencia.", e)
+            error_supabase("No se pudo cargar el módulo de asistencia.", e)
 
     with tabs[4]:
         st.subheader("Exportar datos")
@@ -1296,21 +1296,21 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     "Distrito": b.get("distrito") or "",
                     "Usuario": b.get("usuario", ""),
                     "Integrantes": cuenta.get(b["id"], 0),
-                    "Fecha de creaciÃ³n": str(b.get("fecha_registro", ""))[:10],
+                    "Fecha de creación": str(b.get("fecha_registro", ""))[:10],
                 } for b in bases_f])
                 resumen = (dfb.groupby("Provincia", as_index=False)
                            .agg(Bases=("Base", "count"), Integrantes=("Integrantes", "sum")))
                 dfi = dataframe_detallado(integ_f, mapa)
-                st.write(f"**{len(bases_f)}** bases Â· **{len(integ_f)}** integrantes")
+                st.write(f"**{len(bases_f)}** bases · **{len(integ_f)}** integrantes")
                 st.download_button(
                     "Descargar Excel completo (Resumen, Bases e Integrantes)",
                     excel_multihoja({"Resumen": resumen, "Bases": dfb, "Integrantes": dfi},
-                                    titulo=f"Registro de bases â€” {prov} â€” {date.today().strftime('%d/%m/%Y')}"),
+                                    titulo=f"Registro de bases — {prov} — {date.today().strftime('%d/%m/%Y')}"),
                     f"registro_bases_{nombre_archivo_seguro(prov)}.xlsx", MIME_XLSX, key="xl_completo")
                 st.divider()
                 st.write("**Un Excel y dos PDF por base** (lista y hoja de firmas), en un solo ZIP.")
                 if st.button("Preparar ZIP por base", key="zip_bases_btn"):
-                    with st.spinner("Preparando archivosâ€¦"):
+                    with st.spinner("Preparando archivos…"):
                         por_base = {}
                         for i in integ_f:
                             por_base.setdefault(i["base_id"], []).append(i)
@@ -1320,7 +1320,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             for b in bases_f:
                                 ms = por_base.get(b["id"], [])
                                 carpeta = f'{nombre_archivo_seguro(b["nombre_base"])}_{b["id"]}'
-                                titulo = f'Lista de integrantes â€” {b["nombre_base"]}'
+                                titulo = f'Lista de integrantes — {b["nombre_base"]}'
                                 z.writestr(f"{carpeta}/integrantes.xlsx",
                                            excel_bytes(dataframe_detallado(ms, mapa), "Integrantes", titulo=titulo))
                                 if pdf_ok:
@@ -1339,14 +1339,14 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                        "listas_por_base.zip", "application/zip", key="dl_zip_bases")
                     if zb.get("sin_pdf"):
                         st.caption("El ZIP no incluye PDF porque falta instalar reportlab.")
-                st.caption("Los archivos contienen datos personales (DNI y celular). ManÃ©jalos con cuidado.")
+                st.caption("Los archivos contienen datos personales (DNI y celular). Manéjalos con cuidado.")
         except Exception as e:
             error_supabase("No se pudieron preparar los archivos.", e)
 
     with tabs[5]:
-        st.subheader("ðŸªª Generar credenciales QR")
+        st.subheader("🪪 Generar credenciales QR")
         if not APP_PUBLIC_URL:
-            st.warning("Configura APP_PUBLIC_URL en Secrets con la URL pÃºblica de tu aplicaciÃ³n para que los QR puedan abrir la verificaciÃ³n.")
+            st.warning("Configura APP_PUBLIC_URL en Secrets con la URL pública de tu aplicación para que los QR puedan abrir la verificación.")
         try:
             todos = cargar_integrantes()
             unicos = {}
@@ -1364,7 +1364,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                  bases_info[0] if bases_info else {})
                 integrante_render = dict(integrante)
                 integrante_render["nombre_base"] = ", ".join(b["nombre_base"] for b in bases_info)
-                # Antes la provincia y el distrito salÃ­an vacÃ­os en la credencial.
+                # Antes la provincia y el distrito salían vacíos en la credencial.
                 integrante_render["provincia"] = principal.get("provincia") or ""
                 integrante_render["distrito"] = principal.get("distrito") or ""
                 plantillas = listar_plantillas()
@@ -1380,20 +1380,20 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.write(f'**Plantilla:** {plantilla["nombre"]}')
                 cred_actual = credencial_de_dni(integrante["dni"])
                 if cred_actual:
-                    st.write(f'**Estado de la credencial:** {cred_actual["estado"]} Â· emitida el {str(cred_actual.get("emitida_en", ""))[:10]}')
+                    st.write(f'**Estado de la credencial:** {cred_actual["estado"]} · emitida el {str(cred_actual.get("emitida_en", ""))[:10]}')
                     confirma_borrar = st.checkbox("Confirmo que quiero eliminar esta credencial",
                                                   key=f'credencial_conf_{integrante["dni"]}')
                     if st.button("Eliminar credencial", key="eliminar_cred", disabled=not confirma_borrar):
                         supabase.table("credenciales").delete().eq("id", cred_actual["id"]).execute()
                         st.session_state.pop("credencial_generada", None)
                         st.session_state.pop("credencial_reverso", None)
-                        st.success("Credencial eliminada. Su QR ya no es vÃ¡lido. Puedes generar una nueva cuando quieras.")
+                        st.success("Credencial eliminada. Su QR ya no es válido. Puedes generar una nueva cuando quieras.")
                 if st.button("Generar / renovar credencial", type="primary"):
                     if not APP_PUBLIC_URL:
                         st.error("No se puede emitir un QR funcional hasta configurar APP_PUBLIC_URL.")
                     else:
-                        # Primero se generan las imÃ¡genes; el token anterior solo se invalida
-                        # si todo saliÃ³ bien (antes un fallo dejaba la credencial sin QR vÃ¡lido).
+                        # Primero se generan las imágenes; el token anterior solo se invalida
+                        # si todo salió bien (antes un fallo dejaba la credencial sin QR válido).
                         token = secrets.token_urlsafe(32)
                         url_qr = f"{APP_PUBLIC_URL}/?verificar={quote(token)}"
                         frente = componer_credencial(integrante_render, plantilla, url_qr, "frontal")
@@ -1413,7 +1413,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             st.session_state["credencial_reverso"] = reverso_bytes
                         else:
                             st.session_state.pop("credencial_reverso", None)
-                        st.success("Credencial generada. Escanea el QR para probar la verificaciÃ³n.")
+                        st.success("Credencial generada. Escanea el QR para probar la verificación.")
                 if (st.session_state.get("credencial_generada")
                         and st.session_state.get("credencial_dni") == str(integrante["dni"])):
                     st.image(st.session_state["credencial_generada"], caption="Vista previa")
@@ -1445,20 +1445,20 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                            f"credencial_{nombre_archivo}.pdf", "application/pdf")
                     except Exception as e:
                         logger.warning("PDF no disponible: %r", e)
-                        st.caption("El PDF no estÃ¡ disponible en este momento. Puedes usar las imÃ¡genes PNG.")
+                        st.caption("El PDF no está disponible en este momento. Puedes usar las imágenes PNG.")
             else:
-                st.info("TodavÃ­a no hay integrantes registrados.")
+                st.info("Todavía no hay integrantes registrados.")
         except Exception as e:
             error_supabase("No se pudo preparar la credencial.", e)
 
     with tabs[6]:
-        st.subheader("ðŸªª Credenciales en lote")
-        st.caption("Genera varias credenciales a la vez y descÃ¡rgalas en ZIP o en PDF listo para imprimir.")
-        f_zip = "ZIP con imÃ¡genes PNG"
-        f_pdf = "PDF (una credencial por pÃ¡gina)"
+        st.subheader("🪪 Credenciales en lote")
+        st.caption("Genera varias credenciales a la vez y descárgalas en ZIP o en PDF listo para imprimir.")
+        f_zip = "ZIP con imágenes PNG"
+        f_pdf = "PDF (una credencial por página)"
         f_a4 = "PDF A4 para imprimir (8 por hoja)"
         if not APP_PUBLIC_URL:
-            st.warning("Configura APP_PUBLIC_URL en Secrets para que los QR abran la verificaciÃ³n.")
+            st.warning("Configura APP_PUBLIC_URL en Secrets para que los QR abran la verificación.")
         else:
             try:
                 bases = cargar_bases()
@@ -1475,10 +1475,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             dni_bases.setdefault(d, []).append(b)
                     opciones = {"Todas las bases": None}
                     for b in bases:
-                        opciones[f'{b["nombre_base"]} â€” {b.get("provincia") or ""}/{b.get("distrito") or ""} (ID {b["id"]})'] = b["id"]
+                        opciones[f'{b["nombre_base"]} — {b.get("provincia") or ""}/{b.get("distrito") or ""} (ID {b["id"]})'] = b["id"]
                     c1, c2 = st.columns(2)
                     sel = c1.selectbox("Base", list(opciones.keys()), key="lote_base")
-                    solo_nuevas = c2.checkbox("Solo personas que aÃºn no tienen credencial",
+                    solo_nuevas = c2.checkbox("Solo personas que aún no tienen credencial",
                                               value=True, key="lote_solo_nuevas")
                     id_base = opciones[sel]
                     unicos = {}
@@ -1515,26 +1515,26 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                                     value=1, step=1, key="lote_tanda")
                         lote = cola[(tanda - 1) * tam: tanda * tam]
                         extra = f", tanda {tanda} de {n_tandas}" if (not solo_nuevas and n_tandas > 1) else ""
-                        st.write(f"Se generarÃ¡n **{len(lote)}** credenciales ({len(cola)} pendientes en total{extra}).")
+                        st.write(f"Se generarán **{len(lote)}** credenciales ({len(cola)} pendientes en total{extra}).")
                         formatos = st.multiselect("Formatos de descarga", [f_zip, f_pdf, f_a4],
                                                   default=[f_zip, f_a4], key="lote_formatos")
                         confirmar = True
                         if not solo_nuevas:
                             confirmar = st.checkbox(
-                                "Entiendo que al renovar, los QR anteriores de estas personas dejarÃ¡n de funcionar.",
+                                "Entiendo que al renovar, los QR anteriores de estas personas dejarán de funcionar.",
                                 key="lote_confirmar")
                         plantilla = plantilla_activa()
                         st.caption(f'Plantilla: {plantilla["nombre"]}')
                         if st.button(f"Generar {len(lote)} credenciales", type="primary",
                                      disabled=not (confirmar and formatos), key="lote_generar"):
-                            barra = st.progress(0.0, text="Preparandoâ€¦")
+                            barra = st.progress(0.0, text="Preparando…")
 
                             def avance(i, total):
-                                barra.progress(i / total, text=f"Generando credencial {i} de {total}â€¦")
+                                barra.progress(i / total, text=f"Generando credencial {i} de {total}…")
 
                             resultados, errores = generar_lote(lote, plantilla, dni_bases, avance)
                             if resultados:
-                                barra.progress(1.0, text="Guardando en la base de datosâ€¦")
+                                barra.progress(1.0, text="Guardando en la base de datos…")
                                 guardar_credenciales_lote(resultados, plantilla.get("id"))
                                 archivos = {"sello": datetime.now().strftime("%Y%m%d_%H%M"),
                                             "n": len(resultados),
@@ -1558,8 +1558,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.success(f'{archivos["n"]} credenciales generadas y registradas.')
                         if archivos["errores"]:
                             st.warning("No se pudieron generar: " + ", ".join(archivos["errores"]))
-                        st.caption("DescÃ¡rgalas ahora: por seguridad el sistema no guarda el QR, solo su huella. "
-                                   "Si las pierdes, habrÃ¡ que renovarlas.")
+                        st.caption("Descárgalas ahora: por seguridad el sistema no guarda el QR, solo su huella. "
+                                   "Si las pierdes, habrá que renovarlas.")
                         d1, d2, d3 = st.columns(3)
                         if archivos.get("zip"):
                             d1.download_button("Descargar ZIP (PNG)", archivos["zip"],
@@ -1574,12 +1574,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                                f'credenciales_A4_{archivos["sello"]}.pdf', "application/pdf",
                                                key="dl_lote_a4")
                         if archivos.get("sin_pdf"):
-                            st.caption("Los PDF requieren instalar reportlab (agrÃ©galo a requirements.txt).")
+                            st.caption("Los PDF requieren instalar reportlab (agrégalo a requirements.txt).")
             except Exception as e:
-                error_supabase("No se pudo completar la generaciÃ³n en lote.", e)
+                error_supabase("No se pudo completar la generación en lote.", e)
 
     with tabs[7]:
-        st.subheader("ðŸ“‹ Credenciales generadas")
+        st.subheader("📋 Credenciales generadas")
         st.caption("Todas las credenciales emitidas. Marca las que quieras eliminar; las que no marques se conservan.")
         try:
             msg_cred = st.session_state.pop("mostrar_msg_cred", None)
@@ -1589,7 +1589,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                .select("id,integrante_id,estado,emitida_en")
                                .order("emitida_en", desc=True).order("id"))
             if not creds:
-                st.info("AÃºn no hay credenciales generadas.")
+                st.info("Aún no hay credenciales generadas.")
             else:
                 integrantes_all = cargar_integrantes()
                 nombres_base = {b["id"]: b["nombre_base"] for b in cargar_bases()}
@@ -1619,14 +1619,14 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 vistas = [f for f in filas
                           if (not buscar or buscar in f["Integrante"].lower() or buscar in f["DNI"])
                           and (base_f == "Todas" or base_f in bases_de_dni.get(f["DNI"], []))]
-                st.write(f"**{len(vistas)}** de {len(filas)} credenciales Â· "
+                st.write(f"**{len(vistas)}** de {len(filas)} credenciales · "
                          f"vigentes: {sum(1 for f in filas if f['Estado'] == 'vigente')}")
                 if not vistas:
                     st.info("No hay credenciales con ese filtro.")
                 else:
                     limite = 300
                     if len(vistas) > limite:
-                        st.caption(f"Se muestran las primeras {limite}. Usa el buscador o el filtro de base para ver las demÃ¡s.")
+                        st.caption(f"Se muestran las primeras {limite}. Usa el buscador o el filtro de base para ver las demás.")
                     mostradas = vistas[:limite]
                     n = st.session_state.get("lote_borrado_n", 0)
                     todas = st.checkbox("Marcar todas las que se muestran", key=f"lote_marcar_{n}")
@@ -1638,8 +1638,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         column_config={"Eliminar": st.column_config.CheckboxColumn("Eliminar"), "ID": None},
                         key=f"lote_editor_{n}_{todas}_{abs(hash((buscar, base_f)))}")
                     marcadas = editado.loc[editado["Eliminar"], "ID"].tolist()
-                    st.write(f"Marcadas para eliminar: **{len(marcadas)}** Â· las demÃ¡s se conservan.")
-                    ok = st.checkbox("Confirmo que quiero eliminar las credenciales marcadas. Sus QR dejarÃ¡n de funcionar.",
+                    st.write(f"Marcadas para eliminar: **{len(marcadas)}** · las demás se conservan.")
+                    ok = st.checkbox("Confirmo que quiero eliminar las credenciales marcadas. Sus QR dejarán de funcionar.",
                                      key=f"lote_confirma_borrado_{n}")
                     if st.button("Eliminar credenciales marcadas", type="primary",
                                  disabled=not (marcadas and ok), key=f"lote_btn_borrar_{n}"):
@@ -1656,13 +1656,13 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             error_supabase("No se pudo cargar la lista de credenciales.", e)
 
     with tabs[8]:
-        st.subheader("ðŸŽ¨ Administrar plantillas")
-        st.info("Puedes subir una imagen ya diseÃ±ada o usar la plantilla predeterminada. La imagen se utiliza como fondo; el sistema aÃ±ade los datos y el QR.")
+        st.subheader("🎨 Administrar plantillas")
+        st.info("Puedes subir una imagen ya diseñada o usar la plantilla predeterminada. La imagen se utiliza como fondo; el sistema añade los datos y el QR.")
         with st.form("form_plantilla", clear_on_submit=True):
             nombre_plantilla = st.text_input("Nombre de la plantilla")
             frontal = st.file_uploader("Imagen frontal (PNG o JPG)", type=["png", "jpg", "jpeg"])
             posterior = st.file_uploader("Imagen posterior (opcional)", type=["png", "jpg", "jpeg"])
-            distribucion = st.selectbox("DistribuciÃ³n de datos, foto y QR",
+            distribucion = st.selectbox("Distribución de datos, foto y QR",
                                         [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()), index=1)
             activar_al_guardar = st.checkbox("Activar esta plantilla al guardar", value=True)
             guardar_plantilla_btn = st.form_submit_button("Guardar plantilla")
@@ -1675,7 +1675,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 try:
                     im = Image.open(io.BytesIO(frontal.getvalue()))
                     if im.width < 400 or im.height < 250:
-                        st.warning("La imagen es pequeÃ±a. Se recomienda al menos 1011 Ã— 638 pÃ­xeles.")
+                        st.warning("La imagen es pequeña. Se recomienda al menos 1011 × 638 píxeles.")
                     guardar_plantilla(nombre_plantilla, frontal, posterior, activar_al_guardar,
                                       copy.deepcopy(DISENOS_PREDEFINIDOS.get(distribucion) or {"modo": "auto"}))
                     st.success("Plantilla guardada correctamente.")
@@ -1691,7 +1691,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             if plantillas:
                 for p in plantillas:
                     c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
-                    c1.write(f'**{p["nombre"]}**' + (" Â· Activa" if p.get("activa") else ""))
+                    c1.write(f'**{p["nombre"]}**' + (" · Activa" if p.get("activa") else ""))
                     if c2.button("Vista previa", key=f"prev_{p['id']}"):
                         st.image(url_plantilla(p["frontal_path"]), caption=p["nombre"])
                     if c3.button("Activar", key=f"act_{p['id']}", disabled=bool(p.get("activa"))):
@@ -1702,14 +1702,14 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.session_state[f"mostrar_del_{p['id']}"] = True
                     if st.session_state.get(f"mostrar_del_{p['id']}"):
                         bloque_eliminar(p)
-                    with st.expander(f'DistribuciÃ³n de datos, foto y QR â€” {p["nombre"]}'):
+                    with st.expander(f'Distribución de datos, foto y QR — {p["nombre"]}'):
                         editor_diseno(p)
             else:
-                st.info("AÃºn no hay plantillas guardadas. Se usarÃ¡ el diseÃ±o predeterminado.")
+                st.info("Aún no hay plantillas guardadas. Se usará el diseño predeterminado.")
         except Exception as e:
             error_supabase("No se pudieron cargar las plantillas.", e)
 
-    if st.button("Cerrar sesiÃ³n de administrador"):
+    if st.button("Cerrar sesión de administrador"):
         limpiar_sesion()
         st.rerun()
 
@@ -1718,40 +1718,40 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
 # ---------------------------------------------------------------------
 if st.session_state.base_id is not None:
     base_id = st.session_state.base_id
-    st.success(f'SesiÃ³n: {st.session_state.base_nombre} Â· {st.session_state.base_provincia} / {st.session_state.base_distrito}')
+    st.success(f'Sesión: {st.session_state.base_nombre} · {st.session_state.base_provincia} / {st.session_state.base_distrito}')
     st.subheader("Integrantes de tu base")
     with st.expander("Agregar integrante", expanded=False):
         with st.form("form_integrante", clear_on_submit=True):
             nombres = st.text_input("Nombres")
             apellidos = st.text_input("Apellidos")
-            dni = st.text_input("DNI (8 dÃ­gitos)")
-            celular = st.text_input("Celular (9 a 15 dÃ­gitos)")
-            foto = st.file_uploader("FotografÃ­a del integrante (opcional)", type=["jpg", "jpeg", "png"])
-            cargo_sel = st.selectbox("Cargo o condiciÃ³n", CARGOS)
+            dni = st.text_input("DNI (8 dígitos)")
+            celular = st.text_input("Celular (9 a 15 dígitos)")
+            foto = st.file_uploader("Fotografía del integrante (opcional)", type=["jpg", "jpeg", "png"])
+            cargo_sel = st.selectbox("Cargo o condición", CARGOS)
             cargo_otro = st.text_input("Especifica el cargo") if cargo_sel == "Otro" else ""
-            consentimiento = st.checkbox("Confirmo que la persona fue informada y autorizÃ³ el registro de sus datos y fotografÃ­a, "
-                "y que su nombre, cargo y fotografÃ­a se mostrarÃ¡n al escanear su credencial.")
+            consentimiento = st.checkbox("Confirmo que la persona fue informada y autorizó el registro de sus datos y fotografía, "
+                "y que su nombre, cargo y fotografía se mostrarán al escanear su credencial.")
             guardar = st.form_submit_button("Guardar integrante")
         if guardar:
             cargo_final = cargo_otro.strip() if cargo_sel == "Otro" else cargo_sel
             if not nombres.strip() or not apellidos.strip():
                 st.warning("Completa nombres y apellidos.")
             elif not re.fullmatch(r"\d{8}", dni.strip()):
-                st.warning("El DNI debe tener 8 dÃ­gitos.")
+                st.warning("El DNI debe tener 8 dígitos.")
             elif not re.fullmatch(r"\+?\d{9,15}", celular.strip()):
-                st.warning("Celular invÃ¡lido.")
+                st.warning("Celular inválido.")
             elif cargo_sel == "Otro" and not cargo_final:
                 st.warning("Especifica el cargo.")
             elif not consentimiento:
-                st.warning("Confirma que existe autorizaciÃ³n.")
+                st.warning("Confirma que existe autorización.")
             elif foto is not None and foto.size > MAX_IMG_BYTES:
-                st.warning("La fotografÃ­a debe pesar menos de 8 MB.")
+                st.warning("La fotografía debe pesar menos de 8 MB.")
             else:
                 try:
                     duplicado = (supabase.table("integrantes_base").select("id")
                                  .eq("base_id", base_id).eq("dni", dni.strip()).limit(1).execute().data or [])
                     if duplicado:
-                        st.error("Ese DNI ya estÃ¡ registrado en esta base.")
+                        st.error("Ese DNI ya está registrado en esta base.")
                     else:
                         url_foto = None
                         if foto is not None:
@@ -1781,20 +1781,20 @@ if st.session_state.base_id is not None:
                            "provincia": st.session_state.base_provincia,
                            "distrito": st.session_state.base_distrito}, filas, "mi_base")
         else:
-            st.info("TodavÃ­a no hay integrantes registrados.")
+            st.info("Todavía no hay integrantes registrados.")
     except Exception as e:
         error_supabase("No se pudo cargar la lista.", e)
 
-    if st.button("Cerrar sesiÃ³n de base"):
+    if st.button("Cerrar sesión de base"):
         limpiar_sesion()
         st.rerun()
 
 st.divider()
 with st.expander("Aviso de privacidad"):
     st.write(
-        "Los datos de identificaciÃ³n, fotografÃ­as y afiliaciÃ³n o participaciÃ³n organizativa "
-        "son datos personales que requieren protecciÃ³n reforzada. Informa a cada persona "
-        "sobre la finalidad, quiÃ©n accede, cuÃ¡nto tiempo se conservarÃ¡n y cÃ³mo solicitar "
-        "correcciÃ³n o eliminaciÃ³n. No registres a nadie sin autorizaciÃ³n documentada. "
-        "La consulta pÃºblica del QR muestra Ãºnicamente nombre, cargo, bases y fotografÃ­a, y nunca el DNI ni el telÃ©fono."
+        "Los datos de identificación, fotografías y afiliación o participación organizativa "
+        "son datos personales que requieren protección reforzada. Informa a cada persona "
+        "sobre la finalidad, quién accede, cuánto tiempo se conservarán y cómo solicitar "
+        "corrección o eliminación. No registres a nadie sin autorización documentada. "
+        "La consulta pública del QR muestra únicamente nombre, cargo, bases y fotografía, y nunca el DNI ni el teléfono."
     )
