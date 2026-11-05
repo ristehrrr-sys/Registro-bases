@@ -19,18 +19,18 @@ from concurrent.futures import ThreadPoolExecutor
 import textwrap
 from datetime import date, datetime, timezone
 from urllib.parse import quote, unquote
-
+ 
 import pandas as pd
 import requests
 import qrcode
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-
+ 
 st.set_page_config(
     page_title="Registro de Bases y Comandos",
     page_icon="\U0001f5f3\ufe0f",
     layout="wide",
 )
-
+ 
 st.markdown("""
 <style>
 header,[data-testid="stHeader"],#MainMenu,.stDeployButton,footer,
@@ -38,7 +38,7 @@ header,[data-testid="stHeader"],#MainMenu,.stDeployButton,footer,
 .block-container {padding-top:1rem!important}
 </style>
 """, unsafe_allow_html=True)
-
+ 
 # ---------------------------------------------------------------------
 # CONFIGURACION Y CONEXION
 # ---------------------------------------------------------------------
@@ -49,17 +49,17 @@ def conectar_supabase():
     # SOLO en Secrets del servidor. Nunca la publiques en GitHub ni en el navegador.
     key = st.secrets["SUPABASE_KEY"].strip()
     return create_client(url, key)
-
+ 
 try:
     supabase = conectar_supabase()
 except Exception:
     st.error("No se pudo conectar con Supabase. Revisa SUPABASE_URL y SUPABASE_KEY en Secrets.")
     st.stop()
-
+ 
 BUCKET_FOTOS = "fotos_integrantes"
 BUCKET_PLANTILLAS = "plantillas_credenciales"
 APP_PUBLIC_URL = st.secrets.get("APP_PUBLIC_URL", "").strip().rstrip("/")
-
+ 
 # ---------------------------------------------------------------------
 # GEOGRAFIA PUNO
 # ---------------------------------------------------------------------
@@ -81,7 +81,7 @@ DISTRITOS_PUNO = {
 PROVINCIAS = sorted(DISTRITOS_PUNO.keys())
 CARGOS = ["Militante", "Coordinador de base", "Secretario de organizaci\u00f3n",
           "Secretario de econom\u00eda", "Secretario de actas", "Fiscal", "Otro"]
-
+ 
 # ---------------------------------------------------------------------
 # SEGURIDAD Y SESION
 # ---------------------------------------------------------------------
@@ -89,7 +89,7 @@ def crear_hash(password: str) -> str:
     salt = secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 310000).hex()
     return f"{salt}${digest}"
-
+ 
 def verificar_password(password: str, guardada: str) -> bool:
     try:
         salt, digest = guardada.split("$", 1)
@@ -97,10 +97,10 @@ def verificar_password(password: str, guardada: str) -> bool:
         return hmac.compare_digest(calculado, digest)
     except (ValueError, TypeError, AttributeError):
         return False
-
+ 
 def hash_texto(valor: str) -> str:
     return hashlib.sha256(valor.encode("utf-8")).hexdigest()
-
+ 
 def _clave_hmac() -> bytes:
     # Recomendado: define CLAVE_HMAC (texto largo y aleatorio) en Secrets.
     # Si no existe, se deriva de SUPABASE_KEY para no romper la app.
@@ -108,22 +108,22 @@ def _clave_hmac() -> bytes:
     if not secreto:
         secreto = "persona_key:" + str(st.secrets["SUPABASE_KEY"])
     return secreto.encode("utf-8")
-
+ 
 def clave_persona(dni) -> str:
     # HMAC con clave secreta: no se puede revertir por fuerza bruta sin la clave.
     return hmac.new(_clave_hmac(), str(dni).strip().encode("utf-8"), hashlib.sha256).hexdigest()
-
+ 
 def clave_persona_legacy(dni) -> str:
     # Formato anterior (SHA-256 sin clave). Solo se usa para encontrar credenciales ya emitidas.
     return hash_texto(str(dni).strip())
-
+ 
 def token_credencial(dni, cred_id) -> str:
     # El codigo del QR no es aleatorio: se calcula con la clave secreta, el DNI y el id de la
     # credencial. Asi se puede volver a descargar la misma credencial sin guardar el codigo.
     mac = hmac.new(_clave_hmac(), f"token:{str(dni).strip()}:{cred_id}".encode("utf-8"),
                    hashlib.sha256).digest()
     return base64.urlsafe_b64encode(mac).decode("ascii").rstrip("=")
-
+ 
 def token_reproducible(dni, cred) -> bool:
     # True si la credencial se emitio con este sistema (su huella coincide con el codigo calculado).
     try:
@@ -131,7 +131,7 @@ def token_reproducible(dni, cred) -> bool:
         return hmac.compare_digest(calculado, str(cred.get("token_hash", "")))
     except Exception:
         return False
-
+ 
 def admin_valido(usuario: str, password: str) -> bool:
     # Compatibilidad con los Secrets de la aplicacion anterior:
     # se acepta ADMIN_PASSWORD (texto en Secrets) o ADMIN_PASSWORD_HASH.
@@ -143,16 +143,16 @@ def admin_valido(usuario: str, password: str) -> bool:
     if esperado_hash:
         return verificar_password(password, esperado_hash)
     return bool(esperado_password) and hmac.compare_digest(password.encode(), esperado_password.encode())
-
+ 
 MAX_INTENTOS = 5
 VENTANA_SEG = 15 * 60
 # Hash de relleno para que el tiempo de respuesta sea similar si el usuario no existe.
 HASH_FICTICIO = "0" * 32 + "$" + "0" * 64
-
+ 
 @st.cache_resource
 def _registro_intentos():
     return {}
-
+ 
 def segundos_bloqueo(clave: str) -> int:
     ahora = time.time()
     registro = _registro_intentos()
@@ -161,13 +161,26 @@ def segundos_bloqueo(clave: str) -> int:
     if len(recientes) >= MAX_INTENTOS:
         return int(VENTANA_SEG - (ahora - recientes[0]))
     return 0
-
+ 
 def registrar_fallo(clave: str):
     _registro_intentos().setdefault(clave, []).append(time.time())
-
+ 
 def limpiar_fallos(clave: str):
     _registro_intentos().pop(clave, None)
-
+ 
+def selector(opciones, clave):
+    # Botones de seccion. Usa "pills" si la version de Streamlit lo trae; si no, botones de radio.
+    if hasattr(st, "pills"):
+        v = st.pills("Secci\u00f3n", opciones, selection_mode="single", default=opciones[0],
+                     key=clave, label_visibility="collapsed")
+    else:
+        v = st.radio("Secci\u00f3n", opciones, horizontal=True, key=clave, label_visibility="collapsed")
+    ultimo = f"{clave}_ult"
+    if v is None:                      # si se desmarca la opcion, se conserva la anterior
+        v = st.session_state.get(ultimo, opciones[0])
+    st.session_state[ultimo] = v
+    return v
+ 
 def limpiar_sesion():
     for clave in list(st.session_state.keys()):
         if clave.startswith(("base_", "admin_", "mostrar_", "credencial_", "lote_")):
@@ -178,7 +191,7 @@ def limpiar_sesion():
     st.session_state.base_distrito = ""
     st.session_state.admin_autenticado = False
     st.session_state.es_admin = False
-
+ 
 for k, v in {
     "base_id": None, "base_nombre": "", "base_provincia": "",
     "base_distrito": "", "admin_autenticado": False,
@@ -186,7 +199,7 @@ for k, v in {
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
-
+ 
 # ---------------------------------------------------------------------
 # DATOS
 # ---------------------------------------------------------------------
@@ -199,12 +212,12 @@ def traer_todo(construir, tam=1000):
         if len(bloque) < tam:
             return filas
         ini += tam
-
+ 
 def cargar_bases():
     return traer_todo(lambda: supabase.table("bases_campana")
                       .select("id,nombre_base,provincia,distrito,usuario,fecha_registro")
                       .order("nombre_base").order("id"))
-
+ 
 def cargar_integrantes(base_id=None):
     def construir():
         q = (supabase.table("integrantes_base")
@@ -214,10 +227,10 @@ def cargar_integrantes(base_id=None):
             q = q.eq("base_id", base_id)
         return q
     return traer_todo(construir)
-
+ 
 def nombre_completo(f):
     return f'{f.get("nombres", "")} {f.get("apellidos", "")}'.strip()
-
+ 
 def dataframe_integrantes(filas, incluir_base=False):
     filas_salida = []
     for f in filas:
@@ -233,16 +246,16 @@ def dataframe_integrantes(filas, incluir_base=False):
             item["Base ID"] = f.get("base_id", "")
         filas_salida.append(item)
     return pd.DataFrame(filas_salida)
-
+ 
 MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
+ 
 def nombre_archivo_seguro(texto):
     t = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode()
     return re.sub(r"[^A-Za-z0-9_-]+", "_", t).strip("_")[:60] or "sin_nombre"
-
+ 
 def ubicacion_texto(base):
     return " / ".join(x for x in (base.get("provincia"), base.get("distrito")) if x)
-
+ 
 def excel_multihoja(hojas, titulo=None):
     # hojas: {nombre: DataFrame}. Encabezado con estilo, filtros, panel fijo y columnas ajustadas.
     from openpyxl.styles import Font, PatternFill, Alignment
@@ -278,13 +291,13 @@ def excel_multihoja(hojas, titulo=None):
                         celda.number_format = "@"
     archivo.seek(0)
     return archivo.getvalue()
-
+ 
 def excel_bytes(df, hoja="Registros", titulo=None):
     return excel_multihoja({hoja: df}, titulo)
-
+ 
 COLUMNAS_DETALLE = ["N.\u00ba", "Base", "Provincia", "Distrito", "Apellidos", "Nombres",
                     "DNI", "Celular", "Cargo / condici\u00f3n", "Fecha de registro"]
-
+ 
 def dataframe_detallado(filas, mapa_bases):
     def orden(f):
         b = mapa_bases.get(f.get("base_id"), {})
@@ -301,7 +314,7 @@ def dataframe_detallado(filas, mapa_bases):
             "Fecha de registro": str(f.get("fecha_registro", ""))[:10],
         })
     return pd.DataFrame(salida, columns=COLUMNAS_DETALLE)
-
+ 
 def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
     # Lista imprimible de una base. con_firma=True anade columna de firma (asistencia).
     from reportlab.lib import colors
@@ -320,10 +333,10 @@ def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
                            textColor=colors.HexColor("#444444"))
     t_celda = ParagraphStyle("c", parent=est["Normal"], fontSize=8.5, leading=10)
     t_enc = ParagraphStyle("e", parent=t_celda, textColor=colors.white, fontName="Helvetica-Bold")
-
+ 
     def p(texto, estilo=t_celda):
         return Paragraph(escape(str(texto if texto is not None else "")), estilo)
-
+ 
     ordenados = sorted(miembros, key=lambda m: (str(m.get("apellidos", "")).lower(),
                                                 str(m.get("nombres", "")).lower()))
     if con_firma:
@@ -354,17 +367,17 @@ def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
         elementos.append(p(subtitulo, t_sub))
     elementos.append(p(f"Total: {len(ordenados)} integrantes \u00b7 {date.today().strftime('%d/%m/%Y')}", t_sub))
     elementos += [Spacer(1, 0.4*cm), tabla]
-
+ 
     def pie(canvas, doc_):
         canvas.saveState()
         canvas.setFont("Helvetica", 8)
         canvas.drawString(1.5*cm, 0.9*cm, "Documento con datos personales: uso interno.")
         canvas.drawRightString(A4[0] - 1.5*cm, 0.9*cm, f"P\u00e1gina {doc_.page}")
         canvas.restoreState()
-
+ 
     doc.build(elementos, onFirstPage=pie, onLaterPages=pie)
     return buf.getvalue()
-
+ 
 def botones_lista(base, miembros, clave):
     # Tres descargas de la lista de una base: Excel, PDF y PDF con columna de firma.
     nombre = base.get("nombre_base", "base")
@@ -388,9 +401,9 @@ def botones_lista(base, miembros, clave):
         logger.warning("PDF de lista no disponible: %r", e)
         st.caption("El PDF no est\u00e1 disponible en este momento.")
     st.caption("Estos archivos contienen datos personales (DNI y celular). Man\u00e9jalos con cuidado.")
-
+ 
 logger = logging.getLogger("registro_bases")
-
+ 
 def error_supabase(mensaje, error=None):
     ref = uuid.uuid4().hex[:8]
     logger.error("[%s] %s | %r", ref, mensaje, error)
@@ -398,19 +411,19 @@ def error_supabase(mensaje, error=None):
     if error and st.session_state.get("es_admin"):
         st.caption(f"Detalle t\u00e9cnico (solo visible para el administrador): {str(error)[:500]}")
     st.caption("Si el problema contin\u00faa, comunica la referencia al administrador.")
-
+ 
 def subir_archivo(bucket, path, contenido, content_type):
     supabase.storage.from_(bucket).upload(
         path=path, file=contenido,
         file_options={"content-type": content_type, "upsert": "true"}
     )
     return supabase.storage.from_(bucket).get_public_url(path)
-
+ 
 MAX_IMG_BYTES = 8 * 1024 * 1024
-
+ 
 def ext_imagen(archivo) -> str:
     return "png" if getattr(archivo, "type", "") == "image/png" else "jpg"
-
+ 
 def procesar_foto(archivo, lado_max=900) -> bytes:
     # Valida que sea una imagen real, corrige la orientacion, reduce el tamano
     # y la guarda como JPEG nuevo (asi se eliminan metadatos EXIF/GPS).
@@ -424,14 +437,14 @@ def procesar_foto(archivo, lado_max=900) -> bytes:
     salida = io.BytesIO()
     im.save(salida, format="JPEG", quality=88, optimize=True)
     return salida.getvalue()
-
+ 
 def descargar_imagen(url):
     r = requests.get(url, timeout=25)
     r.raise_for_status()
     im = Image.open(io.BytesIO(r.content))
     im.load()
     return im.convert("RGBA")
-
+ 
 # ---------------------------------------------------------------------
 # PLANTILLAS
 # ---------------------------------------------------------------------
@@ -439,10 +452,10 @@ def listar_plantillas():
     return (supabase.table("plantillas_credenciales")
             .select("id,nombre,frontal_path,posterior_path,activa,ancho,alto,created_at")
             .order("created_at", desc=True).execute().data or [])
-
+ 
 def url_plantilla(path):
     return supabase.storage.from_(BUCKET_PLANTILLAS).get_public_url(path)
-
+ 
 def guardar_plantilla(nombre, frontal, posterior=None, activa=True, diseno=None):
     pid = str(uuid.uuid4())
     frontal_path = f"{pid}/frontal.{ext_imagen(frontal)}"
@@ -462,11 +475,11 @@ def guardar_plantilla(nombre, frontal, posterior=None, activa=True, diseno=None)
     if diseno:
         guardar_diseno(pid, diseno)
     return pid
-
+ 
 def activar_plantilla(pid):
     supabase.table("plantillas_credenciales").update({"activa": False}).neq("id", pid).execute()
     supabase.table("plantillas_credenciales").update({"activa": True}).eq("id", pid).execute()
-
+ 
 # ---------------------------------------------------------------------
 # CREDENCIALES QR
 # ---------------------------------------------------------------------
@@ -477,7 +490,7 @@ def credencial_de_dni(dni):
              .select("id,integrante_id,estado,emitida_en,token_hash").in_("persona_key", claves)
              .limit(1).execute().data or [])
     return filas[0] if filas else None
-
+ 
 def escribir_credencial(existente_id, fila):
     # "fila" trae un id nuevo: asi el codigo del QR cambia y el anterior deja de valer.
     if existente_id:
@@ -488,7 +501,7 @@ def escribir_credencial(existente_id, fila):
             logger.warning("No se pudo actualizar la credencial %s; se reemplaza: %r", existente_id, e)
             supabase.table("credenciales").delete().eq("id", existente_id).execute()
     supabase.table("credenciales").insert(fila).execute()
-
+ 
 def emitir_credencial(integrante, plantilla_id, cred_id, token):
     # Un DNI = una credencial.
     dni = str(integrante["dni"]).strip()
@@ -503,7 +516,7 @@ def emitir_credencial(integrante, plantilla_id, cred_id, token):
         "emitida_en": datetime.now(timezone.utc).isoformat()
     }
     escribir_credencial(existente["id"] if existente else None, fila)
-
+ 
 def datos_bases_por_dni(dni):
     regs = (supabase.table("integrantes_base").select("base_id")
             .eq("dni", dni).execute().data or [])
@@ -512,7 +525,7 @@ def datos_bases_por_dni(dni):
         return []
     return (supabase.table("bases_campana").select("id,nombre_base,provincia,distrito")
             .in_("id", ids).execute().data or [])
-
+ 
 def generar_clave(n=12):
     # Sin caracteres que se confunden (0/O, 1/l/I). Siempre con letras y numeros.
     alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
@@ -520,7 +533,7 @@ def generar_clave(n=12):
         clave = "".join(secrets.choice(alfabeto) for _ in range(n))
         if re.search(r"[A-Za-z]", clave) and re.search(r"\d", clave):
             return clave
-
+ 
 def ruta_de_foto(url):
     # De la URL publica de la foto saca su ruta dentro del bucket.
     if not url:
@@ -529,7 +542,7 @@ def ruta_de_foto(url):
     if marca not in str(url):
         return None
     return unquote(str(url).split(marca, 1)[1].split("?", 1)[0]) or None
-
+ 
 def borrar_fotos(urls):
     rutas = [r for r in (ruta_de_foto(u) for u in urls) if r]
     if rutas:
@@ -537,7 +550,7 @@ def borrar_fotos(urls):
             supabase.storage.from_(BUCKET_FOTOS).remove(rutas)
         except Exception as e:
             logger.warning("No se pudieron borrar fotos: %r", e)
-
+ 
 def liberar_credencial(integrante):
     # Se usa cuando a una persona se le cambia el DNI: su credencial (ligada al DNI anterior)
     # pasa a otro registro de la misma persona si existe; si no, se elimina.
@@ -551,7 +564,7 @@ def liberar_credencial(integrante):
         supabase.table("credenciales").update({"integrante_id": otros[0]["id"]}).eq("id", cred["id"]).execute()
     else:
         supabase.table("credenciales").delete().eq("id", cred["id"]).execute()
-
+ 
 def eliminar_integrantes(integrantes):
     # Elimina uno o muchos integrantes con todo lo que depende de ellos.
     if not integrantes:
@@ -583,7 +596,7 @@ def eliminar_integrantes(integrantes):
         supabase.table("asistencias").delete().in_("integrante_id", lote).execute()
         supabase.table("integrantes_base").delete().in_("id", lote).execute()
     borrar_fotos([i.get("foto_url") for i in integrantes])
-
+ 
 def guardar_edicion_integrante(orig, datos, foto=None, quitar_foto=False):
     datos = dict(datos)
     foto_vieja = orig.get("foto_url")
@@ -597,29 +610,29 @@ def guardar_edicion_integrante(orig, datos, foto=None, quitar_foto=False):
         liberar_credencial(orig)
     if foto is not None or quitar_foto:
         borrar_fotos([foto_vieja])
-
+ 
 def obtener_credencial(token):
     token_hash = hash_texto(token)
     filas = (supabase.table("credenciales")
              .select("id,integrante_id,persona_key,estado,plantilla_id,emitida_en")
              .eq("token_hash", token_hash).limit(1).execute().data or [])
     return filas[0] if filas else None
-
+ 
 def descargar_bytes(url):
     r = requests.get(url, timeout=25)
     r.raise_for_status()
     return r.content
-
+ 
 @st.cache_data(ttl=600, show_spinner=False)
 def bytes_plantilla(path):
     # La plantilla se descarga una sola vez y se reutiliza.
     return descargar_bytes(url_plantilla(path))
-
+ 
 def imagen_plantilla(path):
     im = Image.open(io.BytesIO(bytes_plantilla(path)))
     im.load()
     return im.convert("RGBA")
-
+ 
 def precargar_fotos(urls, max_hilos=8):
     # Descarga las fotos en paralelo (sin tocar Streamlit dentro de los hilos).
     def bajar(u):
@@ -633,24 +646,24 @@ def precargar_fotos(urls, max_hilos=8):
             return u, None
     with ThreadPoolExecutor(max_workers=max_hilos) as ex:
         return dict(ex.map(bajar, urls))
-
+ 
 def mapa_estados_credenciales():
     filas = traer_todo(lambda: supabase.table("credenciales")
                        .select("id,persona_key,estado,token_hash").order("id"))
     return {f["persona_key"]: f for f in filas}
-
+ 
 def plantilla_activa():
     activas = [p for p in listar_plantillas() if p.get("activa")]
     if activas:
         return activas[0]
     return {"id": None, "nombre": "Plantilla predeterminada",
             "frontal_path": None, "posterior_path": None}
-
+ 
 def _png(imagen):
     b = io.BytesIO()
     imagen.save(b, format="PNG")
     return b.getvalue()
-
+ 
 def generar_lote(personas, plantilla, dni_bases, progreso=None, existentes=None):
     # Genera las imagenes en memoria. No toca la base de datos: eso se hace despues.
     fotos = precargar_fotos(list({p["foto_url"] for p in personas if p.get("foto_url")}))
@@ -687,7 +700,7 @@ def generar_lote(personas, plantilla, dni_bases, progreso=None, existentes=None)
         if progreso:
             progreso(i, len(personas))
     return resultados, errores
-
+ 
 def guardar_credenciales_lote(resultados, plantilla_id):
     ahora = datetime.now(timezone.utc).isoformat()
     por_dni = {str(r["persona"]["dni"]).strip(): r for r in resultados}
@@ -713,7 +726,7 @@ def guardar_credenciales_lote(resultados, plantilla_id):
             nuevos.append(fila)
     for i in range(0, len(nuevos), 100):
         supabase.table("credenciales").insert(nuevos[i:i + 100]).execute()
-
+ 
 def zip_credenciales(resultados):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:   # los PNG ya vienen comprimidos
@@ -725,7 +738,7 @@ def zip_credenciales(resultados):
             if r.get("reverso_png"):
                 z.writestr(nombre + "_reverso.png", r["reverso_png"])
     return buf.getvalue()
-
+ 
 def pdf_credenciales(resultados, hoja_a4=False):
     from reportlab.pdfgen import canvas
     from reportlab.lib.utils import ImageReader
@@ -758,7 +771,7 @@ def pdf_credenciales(resultados, hoja_a4=False):
     alto_total = filas * ch + (filas - 1) * gap
     y_top = ph_a4 - (ph_a4 - alto_total) / 2
     c = canvas.Canvas(buf, pagesize=A4)
-
+ 
     def dibujar(imagenes, espejo):
         por_pagina = cols * filas
         for ini in range(0, len(imagenes), por_pagina):
@@ -774,21 +787,21 @@ def pdf_credenciales(resultados, hoja_a4=False):
                 c.setLineWidth(0.3)
                 c.rect(x, y, cw, ch)
             c.showPage()
-
+ 
     dibujar([r["frente_png"] for r in resultados], False)
     reversos = [r["reverso_png"] for r in resultados if r.get("reverso_png")]
     if reversos:
         dibujar(reversos, True)
     c.save()
     return buf.getvalue()
-
+ 
 def crear_qr(url):
     qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M,
                        box_size=8, border=2)
     qr.add_data(url)
     qr.make(fit=True)
     return qr.make_image(fill_color="black", back_color="white").convert("RGB")
-
+ 
 @lru_cache(maxsize=128)
 def cargar_fuente(tamano, negrita=False):
     # Busca una fuente real en el sistema. Si el servidor no tiene ninguna, usa la
@@ -821,7 +834,7 @@ def cargar_fuente(tamano, negrita=False):
         return ImageFont.load_default(size=tamano)   # Pillow 10.1 o superior
     except Exception:
         return ImageFont.load_default()
-
+ 
 def ajustar_texto(dibujo, texto, fuente, ancho_max):
     texto = str(texto or "")
     palabras = texto.split()
@@ -837,7 +850,7 @@ def ajustar_texto(dibujo, texto, fuente, ancho_max):
     if actual:
         lineas.append(actual)
     return lineas or [""]
-
+ 
 # Distribuciones predefinidas. Todas las medidas son proporciones (0 a 1) del ancho y
 # del alto de la imagen, asi funcionan aunque la plantilla tenga otro tamano.
 # En "campos", "y" es la altura de la linea sobre la que se escribe el dato.
@@ -860,10 +873,10 @@ DISENOS_PREDEFINIDOS = {
         },
     },
 }
-
+ 
 # Si una plantilla con imagen no tiene distribucion guardada, se usa esta.
 DISENO_POR_DEFECTO = "Marcos y l\u00edneas (ejemplo Puno)"
-
+ 
 @st.cache_data(ttl=300, show_spinner=False)
 def cargar_diseno(plantilla_id):
     # La distribucion de cada plantilla se guarda como diseno.json junto a sus imagenes.
@@ -874,7 +887,7 @@ def cargar_diseno(plantilla_id):
         return json.loads(datos.decode("utf-8")) or None
     except Exception:
         return None
-
+ 
 def guardar_diseno(plantilla_id, diseno):
     ruta = f"{plantilla_id}/diseno.json"
     if not diseno:
@@ -889,7 +902,7 @@ def guardar_diseno(plantilla_id, diseno):
         except Exception:
             subir_archivo(BUCKET_PLANTILLAS, ruta, contenido, "text/plain")
     cargar_diseno.clear()
-
+ 
 def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=True):
     # Escribe sobre una linea: reduce la letra si no cabe y, en ultimo caso, recorta con "...".
     t = tam
@@ -907,7 +920,7 @@ def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=Tru
     except Exception:
         alto = draw.textbbox((0, 0), texto, font=fuente)[3]
         draw.text((x, y_base - alto), texto, fill=color, font=fuente)
-
+ 
 def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
     w, h = lienzo.size
     draw = ImageDraw.Draw(lienzo)
@@ -949,14 +962,14 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
             escribir_en_linea(draw, texto, int(c["x"] * w), int(c["y"] * h) - margen,
                               max(10, int(c["ancho"] * w)), tam, color, t.get("negrita", True))
     return lienzo.convert("RGB")
-
+ 
 def foto_demo():
     im = Image.new("RGB", (400, 500), "#9DB7D5")
     d = ImageDraw.Draw(im)
     d.ellipse((130, 90, 270, 260), fill="#D9A877")
     d.ellipse((60, 290, 340, 640), fill="#35506E")
     return im
-
+ 
 def eliminar_plantilla(p):
     pid = p["id"]
     # Las credenciales ya emitidas se conservan: solo dejan de apuntar a esta plantilla.
@@ -969,7 +982,7 @@ def eliminar_plantilla(p):
         logger.warning("No se pudieron borrar los archivos de la plantilla %s: %r", pid, e)
     cargar_diseno.clear()
     bytes_plantilla.clear()
-
+ 
 def bloque_eliminar(p):
     aviso = ("Se borrar\u00e1n la plantilla, sus im\u00e1genes y su distribuci\u00f3n. Las credenciales ya emitidas "
              "y sus QR siguen funcionando, pero no podr\u00e1s volver a generarlas con este dise\u00f1o.")
@@ -988,10 +1001,10 @@ def bloque_eliminar(p):
     if k2.button("Cancelar", key=f"del_no_{p['id']}"):
         st.session_state.pop(f"mostrar_del_{p['id']}", None)
         st.rerun()
-
+ 
 DISENO_AUTO = "Autom\u00e1tico (distribuci\u00f3n est\u00e1ndar)"
 DISENO_JSON = "Personalizado (avanzado)"
-
+ 
 def editor_diseno(p):
     actual = cargar_diseno(p["id"])
     opciones = [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()) + [DISENO_JSON]
@@ -1038,7 +1051,7 @@ def editor_diseno(p):
             st.success("Distribuci\u00f3n guardada. Se usar\u00e1 en las pr\u00f3ximas credenciales.")
         except Exception as e:
             error_supabase("No se pudo guardar la distribuci\u00f3n.", e)
-
+ 
 def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=None):
     path = plantilla.get("frontal_path") if lado == "frontal" else plantilla.get("posterior_path")
     if path:
@@ -1063,7 +1076,7 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
             diseno = DISENOS_PREDEFINIDOS[DISENO_POR_DEFECTO]
         elif diseno and diseno.get("modo") == "auto":
             diseno = None
-
+ 
     if lado == "posterior":
         draw.text((int(w*.06), int(h*.18)), "VERIFICACI\u00d3N DE CREDENCIAL",
                   fill="#17324D", font=cargar_fuente(max(18, int(h*.045)), True))
@@ -1075,10 +1088,10 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
         qr = qr.resize((qsize, qsize))
         lienzo.alpha_composite(qr.convert("RGBA"), (int(w*.66), int(h*.28)))
         return lienzo.convert("RGB")
-
+ 
     if diseno:
         return aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img)
-
+ 
     # Coordenadas relativas para adaptarse a plantillas horizontales o verticales.
     margen = int(w * .055)
     foto_size = int(min(w, h) * .36)
@@ -1097,13 +1110,13 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
                        outline="#777777", width=3)
         draw.text((foto_x+8, foto_y+foto_size//2), "SIN FOTO",
                   fill="#555555", font=cargar_fuente(max(12, int(h*.025)), True))
-
+ 
     qr = crear_qr(qr_url)
     qr_size = int(min(w, h) * .25)
     qr = qr.resize((qr_size, qr_size))
     qr_x, qr_y = w - qr_size - margen, h - qr_size - margen
     lienzo.alpha_composite(qr.convert("RGBA"), (qr_x, qr_y))
-
+ 
     texto_x = foto_x + foto_size + int(w*.035)
     ancho_texto = max(100, qr_x - texto_x - int(w*.025))
     tam_nombre = max(16, int(h*.055))
@@ -1125,7 +1138,7 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
             draw.text((texto_x, y), linea, fill="#222222", font=fuente)
             y += int(h*.052)
     return lienzo.convert("RGB")
-
+ 
 # ---------------------------------------------------------------------
 # VERIFICACION PUBLICA DEL QR
 # ---------------------------------------------------------------------
@@ -1162,9 +1175,9 @@ if token_qr:
     except Exception as e:
         error_supabase("No se pudo verificar la credencial.", e)
     st.stop()
-
+ 
 st.caption("Gesti\u00f3n de bases, integrantes, reuniones, asistencia y credenciales verificables.")
-
+ 
 # ---------------------------------------------------------------------
 # ACCESO
 # ---------------------------------------------------------------------
@@ -1216,7 +1229,7 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
             else:
                 registrar_fallo("admin")
                 st.error("Credenciales incorrectas o Secrets de administrador no configurados.")
-
+ 
 # ---------------------------------------------------------------------
 # PANEL ADMINISTRADOR
 # ---------------------------------------------------------------------
@@ -1224,33 +1237,14 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
     st.success("Sesi\u00f3n de administrador")
     if not str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip():
         st.warning("Est\u00e1s usando ADMIN_PASSWORD en texto plano. Conviene reemplazarlo por ADMIN_PASSWORD_HASH en Secrets.")
-    tabs = st.tabs(["Resumen", "Crear base", "Bases e integrantes", "Administrar bases",
-                    "Reuniones y asistencia", "Exportar",
-                    "Credenciales QR", "Credenciales en lote", "Credenciales generadas", "Plantillas"])
-
-    with tabs[0]:
-        try:
-            bases = cargar_bases()
-            integrantes = cargar_integrantes()
-            c1, c2 = st.columns(2)
-            c1.metric("Bases registradas", len(bases))
-            c2.metric("Registros de integrantes", len(integrantes))
-            if bases:
-                df = pd.DataFrame([{
-                    "Base": b.get("nombre_base", ""),
-                    "Provincia": b.get("provincia") or "Sin asignar",
-                    "Distrito": b.get("distrito") or "Sin asignar",
-                    "Usuario": b.get("usuario", "")
-                } for b in bases])
-                st.dataframe(df, use_container_width=True, hide_index=True)
-                st.dataframe(df.groupby("Provincia").size().reset_index(name="Cantidad"),
-                             use_container_width=True, hide_index=True)
-            else:
-                st.info("Todav\u00eda no hay bases registradas.")
-        except Exception as e:
-            error_supabase("No se pudo cargar el resumen.", e)
-
-    with tabs[1]:
+    panel = selector(["Bases", "Reuniones", "Credenciales", "Exportar", "Plantillas"], "admin_panel")
+    sub = ""
+    if panel == "Bases":
+        sub = selector(["Integrantes", "Crear base", "Administrar"], "admin_sub_bases")
+    elif panel == "Credenciales":
+        sub = selector(["Una persona", "Varias personas", "Generadas"], "admin_sub_cred")
+ 
+    if panel == "Bases" and sub == "Crear base":
         st.subheader("Crear una base o comando")
         with st.form("crear_base"):
             nombre = st.text_input("Nombre de la base o comando")
@@ -1288,8 +1282,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.success("Base creada correctamente.")
                 except Exception as e:
                     error_supabase("No se pudo crear la base.", e)
-
-    with tabs[2]:
+ 
+    if panel == "Bases" and sub == "Integrantes":
         st.subheader("Bases e integrantes")
         try:
             bases = cargar_bases()
@@ -1311,8 +1305,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.info("No hay bases registradas.")
         except Exception as e:
             error_supabase("No se pudieron consultar las bases e integrantes.", e)
-
-    with tabs[3]:
+ 
+    if panel == "Bases" and sub == "Administrar":
         st.subheader("Administrar bases")
         st.caption("Corrige datos, restablece contrase\u00f1as y elimina bases o integrantes.")
         try:
@@ -1328,7 +1322,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 bad = mapa_adm[st.selectbox("Base", list(mapa_adm.keys()), key="admin_adm_base")]
                 bid = bad["id"]
                 miembros = cargar_integrantes(bid)
-
+ 
                 st.markdown("**Datos de la base**")
                 nb = st.text_input("Nombre de la base o comando", value=bad["nombre_base"], key=f"admin_nb_{bid}")
                 provs = ["Seleccionar provincia"] + PROVINCIAS
@@ -1353,7 +1347,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         }).eq("id", bid).execute()
                         st.session_state["mostrar_msg_admin"] = "Datos de la base actualizados."
                         st.rerun()
-
+ 
                 st.divider()
                 st.markdown("**Contrase\u00f1a del secretario general**")
                 st.caption(f'Usuario: {bad["usuario"]}. \u00dasalo si perdieron la contrase\u00f1a; la anterior deja de funcionar.')
@@ -1377,7 +1371,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             supabase.table("bases_campana").update({"password_hash": crear_hash(pa)}).eq("id", bid).execute()
                             limpiar_fallos("base:" + str(bad["usuario"]).lower())
                             st.success("Contrase\u00f1a actualizada. La anterior ya no funciona.")
-
+ 
                 st.divider()
                 st.markdown(f"**Integrantes de la base** ({len(miembros)})")
                 if not miembros:
@@ -1451,7 +1445,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                 eliminar_integrantes([m])
                                 st.session_state["mostrar_msg_admin"] = "Integrante eliminado."
                                 st.rerun()
-
+ 
                 st.divider()
                 with st.expander("Eliminar esta base"):
                     st.warning(f'Se eliminan la base, sus {len(miembros)} integrantes, sus fotograf\u00edas y las credenciales '
@@ -1465,8 +1459,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.rerun()
         except Exception as e:
             error_supabase("No se pudo completar la acci\u00f3n de administraci\u00f3n.", e)
-
-    with tabs[4]:
+ 
+    if panel == "Reuniones":
         st.subheader("Reuniones y asistencia")
         with st.form("crear_reunion"):
             nr = st.text_input("Nombre de la reuni\u00f3n")
@@ -1548,8 +1542,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.info("Primero registra una base.")
         except Exception as e:
             error_supabase("No se pudo cargar el m\u00f3dulo de asistencia.", e)
-
-    with tabs[5]:
+ 
+    if panel == "Exportar":
         st.subheader("Exportar datos")
         try:
             bases = cargar_bases()
@@ -1616,8 +1610,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.caption("Los archivos contienen datos personales (DNI y celular). Man\u00e9jalos con cuidado.")
         except Exception as e:
             error_supabase("No se pudieron preparar los archivos.", e)
-
-    with tabs[6]:
+ 
+    if panel == "Credenciales" and sub == "Una persona":
         st.subheader("\U0001faaa Generar credenciales QR")
         if not APP_PUBLIC_URL:
             st.warning("Configura APP_PUBLIC_URL en Secrets con la URL p\u00fablica de tu aplicaci\u00f3n para que los QR puedan abrir la verificaci\u00f3n.")
@@ -1739,9 +1733,9 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.info("Todav\u00eda no hay integrantes registrados.")
         except Exception as e:
             error_supabase("No se pudo preparar la credencial.", e)
-
-    with tabs[7]:
-        st.subheader("\U0001faaa Credenciales en lote")
+ 
+    if panel == "Credenciales" and sub == "Varias personas":
+        st.subheader("\U0001faaa Credenciales de varias personas")
         st.caption("Genera varias credenciales a la vez y desc\u00e1rgalas en ZIP o en PDF listo para imprimir.")
         f_zip = "ZIP con im\u00e1genes PNG"
         f_pdf = "PDF (una credencial por p\u00e1gina)"
@@ -1797,6 +1791,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     if not cola:
                         st.info("No hay personas para esta opci\u00f3n con este filtro.")
                     else:
+                        et_personas = {f'{nombre_completo(p)} (DNI {p["dni"]})': p for p in cola}
+                        elegidas = st.multiselect(
+                            "Elegir personas (opcional; si no eliges ninguna, se usan todas las de la lista)",
+                            list(et_personas.keys()), key=f"lote_personas_{id_base}_{modo}")
+                        if elegidas:
+                            cola = [et_personas[e] for e in elegidas if e in et_personas] or cola
                         tam = st.selectbox("Credenciales por tanda", [25, 50, 100], index=1, key="lote_tam")
                         n_tandas = -(-len(cola) // tam)
                         if modo == M_FALTAN or n_tandas == 1:
@@ -1815,10 +1815,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         if st.button(f"{etiqueta} {len(lote)} credenciales", type="primary",
                                      disabled=not formatos, key="lote_generar"):
                             barra = st.progress(0.0, text="Preparando\u2026")
-
+ 
                             def avance(i, total):
                                 barra.progress(i / total, text=f"Generando credencial {i} de {total}\u2026")
-
+ 
                             existentes = ({str(p["dni"]).strip(): filas_cred[str(p["dni"]).strip()] for p in lote}
                                           if modo == M_DESCARGAR else None)
                             resultados, errores = generar_lote(lote, plantilla, dni_bases, avance, existentes)
@@ -1872,9 +1872,9 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         if archivos.get("sin_pdf"):
                             st.caption("Los PDF requieren instalar reportlab (agr\u00e9galo a requirements.txt).")
             except Exception as e:
-                error_supabase("No se pudo completar la generaci\u00f3n en lote.", e)
-
-    with tabs[8]:
+                error_supabase("No se pudo completar la generaci\u00f3n de varias credenciales.", e)
+ 
+    if panel == "Credenciales" and sub == "Generadas":
         st.subheader("\U0001f4cb Credenciales generadas")
         st.caption("Todas las credenciales emitidas. Marca las que quieras eliminar; las que no marques se conservan.")
         try:
@@ -1950,8 +1950,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                        "credenciales_generadas.xlsx", MIME_XLSX, key="dl_creds_xlsx")
         except Exception as e:
             error_supabase("No se pudo cargar la lista de credenciales.", e)
-
-    with tabs[9]:
+ 
+    if panel == "Plantillas":
         st.subheader("\U0001f3a8 Administrar plantillas")
         st.info("Puedes subir una imagen ya dise\u00f1ada o usar la plantilla predeterminada. La imagen se utiliza como fondo; el sistema a\u00f1ade los datos y el QR.")
         with st.form("form_plantilla", clear_on_submit=True):
@@ -2004,11 +2004,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.info("A\u00fan no hay plantillas guardadas. Se usar\u00e1 el dise\u00f1o predeterminado.")
         except Exception as e:
             error_supabase("No se pudieron cargar las plantillas.", e)
-
+ 
     if st.button("Cerrar sesi\u00f3n de administrador"):
         limpiar_sesion()
         st.rerun()
-
+ 
 # ---------------------------------------------------------------------
 # PANEL RESPONSABLE DE BASE
 # ---------------------------------------------------------------------
@@ -2080,11 +2080,11 @@ if st.session_state.base_id is not None:
             st.info("Todav\u00eda no hay integrantes registrados.")
     except Exception as e:
         error_supabase("No se pudo cargar la lista.", e)
-
+ 
     if st.button("Cerrar sesi\u00f3n de base"):
         limpiar_sesion()
         st.rerun()
-
+ 
 st.divider()
 with st.expander("Aviso de privacidad"):
     st.write(
