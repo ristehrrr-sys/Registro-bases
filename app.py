@@ -34,57 +34,63 @@ st.set_page_config(
  
 st.markdown("""
 <style>
-:root{--acc:#2FB067;--card:rgba(127,127,127,.12);--card2:rgba(127,127,127,.20);--line:rgba(127,127,127,.24);--red:#E5484D}
+:root{--acc:#2FB067;--card:rgba(127,127,127,.12);--card2:rgba(127,127,127,.22);--line:rgba(127,127,127,.38);--red:#D1242F}
 header,[data-testid="stHeader"],#MainMenu,.stDeployButton,footer,
 [data-testid="stToolbar"],[data-testid="stDecoration"] {visibility:hidden!important;display:none!important}
-.block-container{padding-top:.8rem!important;padding-bottom:140px!important;max-width:980px!important}
+.block-container{padding-top:.8rem!important;padding-bottom:170px!important;max-width:980px!important}
 /* Barra superior estilo perfil */
-.top{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 12px;border-radius:22px;background:var(--card)}
-.av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:23px;color:#fff;flex:none;background:linear-gradient(160deg,#3ECF8E,#1B7F3B);box-shadow:0 3px 10px rgba(0,0,0,.28)}
+.top{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 12px;border-radius:14px;background:var(--card)}
+.av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex:none;background:linear-gradient(160deg,#3ECF8E,#1B7F3B)}
 .tt .n{font-weight:800;font-size:1.04rem;line-height:1.2}
 .tt .s{font-size:.78rem;opacity:.7;line-height:1.3;margin-top:1px}
-.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;background:var(--card);font-size:.82rem;font-weight:600;margin:0 0 10px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;background:var(--card);font-size:.82rem;font-weight:600;margin:0 0 10px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 3px rgba(47,176,103,.25)}
 /* Titulos */
-h2,h3{font-weight:750!important;letter-spacing:-.01em!important}
-h2{font-size:1.35rem!important}
-h3{font-size:1.1rem!important}
+h2,h3{font-weight:700!important;letter-spacing:-.01em!important}
+h2{font-size:1.3rem!important}
+h3{font-size:1.08rem!important}
 hr{margin:1.1rem 0!important;opacity:.3}
-/* Botones: suaves y redondeados */
-.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{border:none!important;border-radius:16px!important;background:var(--card2)!important;font-weight:600!important;min-height:2.9rem;padding:.55rem 1rem!important;transition:filter .12s ease,transform .12s ease}
-.stButton>button:hover,.stDownloadButton>button:hover,.stFormSubmitButton>button:hover{filter:brightness(1.15);transform:translateY(-1px)}
-.stButton>button:active,.stDownloadButton>button:active{transform:scale(.98)}
-.stButton>button[kind="primary"],.stFormSubmitButton>button[kind="primary"],[data-testid="stBaseButton-primary"],[data-testid="stBaseButton-primaryFormSubmit"]{background:var(--acc)!important;color:#fff!important;border-radius:999px!important;box-shadow:0 4px 14px rgba(47,176,103,.38)}
-@media (max-width:768px){.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{width:100%}}
+/* Botones estilo GitHub: compactos, gris suave, borde fino */
+.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{border:1px solid var(--line)!important;border-radius:8px!important;background:var(--card)!important;font-weight:600!important;font-size:.9rem!important;min-height:2.4rem;padding:.3rem .9rem!important;box-shadow:none!important;transition:background .1s ease}
+.stButton>button:hover,.stDownloadButton>button:hover,.stFormSubmitButton>button:hover{background:var(--card2)!important}
+.stButton>button[kind="primary"],.stFormSubmitButton>button[kind="primary"],[data-testid="stBaseButton-primary"],[data-testid="stBaseButton-primaryFormSubmit"]{background:#1F883D!important;border-color:rgba(27,31,36,.15)!important;color:#fff!important;box-shadow:none!important}
+.stButton>button[kind="primary"]:hover,[data-testid="stBaseButton-primary"]:hover{background:#1A7F37!important}
+@media (max-width:640px){.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{min-height:2.7rem}}
 /* Acciones de borrado en rojo */
-[class*="st-key-del_"]:not([class*="st-key-del_no_"]) button,[class*="st-key-eliminar_cred"] button,[class*="st-key-admin_delbtn_"] button{background:rgba(229,72,77,.16)!important;color:var(--red)!important}
-[class*="st-key-del_si_"] button,[class*="st-key-admin_delbtn_b_"] button,[class*="st-key-lote_btn_borrar_"] button{background:var(--red)!important;color:#fff!important;box-shadow:0 4px 14px rgba(229,72,77,.35)}
-/* Selector de secciones: barra inferior flotante con iconos */
-[class*="st-key-admin_panel"]{position:fixed!important;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));z-index:1000;width:min(94vw,560px);background:rgba(28,38,51,.97);border-radius:30px;padding:6px 8px;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#fff}
-[class*="st-key-admin_panel"] [data-testid="stButtonGroup"]{display:flex!important;flex-wrap:nowrap!important;gap:2px!important;width:100%}
-[class*="st-key-admin_panel"] button{flex:1 1 0!important;min-width:0;display:flex!important;flex-direction:column;align-items:center;gap:2px;padding:7px 2px!important;border:none!important;background:transparent!important;border-radius:22px!important;color:#9FB0C3!important;box-shadow:none!important;transform:none!important;width:auto}
-[class*="st-key-admin_panel"] button p{font-size:.68rem!important;font-weight:600!important;margin:0!important;line-height:1.1!important}
-[class*="st-key-admin_panel"] button::before{font-size:1.25rem;line-height:1}
-[class*="st-key-admin_panel"] button[data-testid="stBaseButton-pillsActive"]{background:rgba(47,176,103,.22)!important;color:#5EE08A!important}
-[class*="st-key-admin_panel"] button:nth-child(1)::before{content:"\U0001f465"}
-[class*="st-key-admin_panel"] button:nth-child(2)::before{content:"\U0001f4c5"}
-[class*="st-key-admin_panel"] button:nth-child(3)::before{content:"\U0001f194"}
-[class*="st-key-admin_panel"] button:nth-child(4)::before{content:"\U0001f4e4"}
-[class*="st-key-admin_panel"] button:nth-child(5)::before{content:"\U0001f5bc\ufe0f"}
-/* Subsecciones: control segmentado */
-[class*="st-key-admin_sub_"] [data-testid="stButtonGroup"]{display:flex!important;flex-wrap:nowrap!important;gap:4px!important;background:var(--card);border-radius:18px;padding:4px;width:100%}
-[class*="st-key-admin_sub_"] button{flex:1 1 0!important;min-width:0;border:none!important;background:transparent!important;border-radius:14px!important;box-shadow:none!important;padding:.5rem .3rem!important;transform:none!important}
-[class*="st-key-admin_sub_"] button p{font-size:.86rem!important;font-weight:650!important;margin:0!important}
-[class*="st-key-admin_sub_"] button[data-testid="stBaseButton-pillsActive"]{background:var(--card2)!important;color:var(--acc)!important}
+[class*="st-key-del_"]:not([class*="st-key-del_no_"]) button,[class*="st-key-eliminar_cred"] button,[class*="st-key-admin_delbtn_"] button{background:transparent!important;color:var(--red)!important;border-color:rgba(209,36,47,.55)!important}
+[class*="st-key-del_"]:not([class*="st-key-del_no_"]) button:hover,[class*="st-key-eliminar_cred"] button:hover,[class*="st-key-admin_delbtn_"] button:hover{background:rgba(209,36,47,.12)!important}
+[class*="st-key-del_si_"] button,[class*="st-key-admin_delbtn_b_"] button,[class*="st-key-lote_btn_borrar_"] button{background:#CF222E!important;color:#fff!important;border-color:rgba(27,31,36,.15)!important}
+/* Navegacion inferior flotante (sobre el boton Manage app de Streamlit Cloud) */
+[class*="st-key-nav_admin_panel"]{position:fixed!important;left:50%;transform:translateX(-50%);bottom:calc(54px + env(safe-area-inset-bottom));z-index:1000;width:min(94vw,560px);background:rgba(28,38,51,.97);border-radius:30px;padding:6px 8px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+[class*="st-key-nav_admin_panel"] [data-testid="stHorizontalBlock"]{flex-wrap:nowrap!important;gap:2px!important}
+[class*="st-key-nav_admin_panel"] [data-testid="stHorizontalBlock"]>div{flex:1 1 0!important;min-width:0!important;width:auto!important}
+[class*="st-key-nav_admin_panel"] .stButton,[class*="st-key-nav_admin_panel"] [data-testid="stButton"]{width:100%!important}
+[class*="st-key-nav_admin_panel"] button{width:100%!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:0!important;padding:7px 2px!important;border:none!important;background:transparent!important;border-radius:22px!important;box-shadow:none!important;color:#B4C2D1!important}
+[class*="st-key-nav_admin_panel"] button *{color:inherit!important}
+[class*="st-key-nav_admin_panel"] button p{font-size:.68rem!important;font-weight:600!important;margin:0!important;line-height:1.1!important;white-space:nowrap}
+[class*="st-key-nav_admin_panel"] button::before{font-size:1.25rem;line-height:1}
+[class*="st-key-nav_admin_panel"] button[kind="primary"],[class*="st-key-nav_admin_panel"] [data-testid="stBaseButton-primary"]{background:rgba(47,176,103,.26)!important;color:#6BE79A!important}
+[class*="st-key-nav_admin_panel"] [data-testid="stHorizontalBlock"]>div:nth-child(1) button::before{content:"\U0001f465"}
+[class*="st-key-nav_admin_panel"] [data-testid="stHorizontalBlock"]>div:nth-child(2) button::before{content:"\U0001f4c5"}
+[class*="st-key-nav_admin_panel"] [data-testid="stHorizontalBlock"]>div:nth-child(3) button::before{content:"\U0001f194"}
+[class*="st-key-nav_admin_panel"] [data-testid="stHorizontalBlock"]>div:nth-child(4) button::before{content:"\U0001f4e4"}
+[class*="st-key-nav_admin_panel"] [data-testid="stHorizontalBlock"]>div:nth-child(5) button::before{content:"\U0001f5bc\ufe0f"}
+/* Subsecciones: control segmentado como "Code | Blame" de GitHub */
+[class*="st-key-nav_admin_sub_"] [data-testid="stHorizontalBlock"]{flex-wrap:nowrap!important;gap:2px!important;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+[class*="st-key-nav_admin_sub_"] [data-testid="stHorizontalBlock"]>div{flex:1 1 0!important;min-width:0!important;width:auto!important}
+[class*="st-key-nav_admin_sub_"] .stButton,[class*="st-key-nav_admin_sub_"] [data-testid="stButton"]{width:100%!important}
+[class*="st-key-nav_admin_sub_"] button{width:100%!important;min-height:2.3rem!important;border:none!important;background:transparent!important;border-radius:8px!important;box-shadow:none!important;padding:.25rem .2rem!important}
+[class*="st-key-nav_admin_sub_"] button p{font-size:.82rem!important;line-height:1.15!important;margin:0!important;white-space:normal;text-align:center}
+[class*="st-key-nav_admin_sub_"] button[kind="primary"],[class*="st-key-nav_admin_sub_"] [data-testid="stBaseButton-primary"]{background:var(--card2)!important;color:inherit!important;font-weight:700!important;box-shadow:0 0 0 1px var(--line) inset!important}
 /* Tarjetas */
-[data-testid="stMetric"]{background:var(--card);border-radius:18px;padding:14px 16px}
+[data-testid="stMetric"]{background:var(--card);border-radius:12px;padding:12px 14px}
 [data-testid="stMetricValue"]{font-weight:800}
-[data-testid="stForm"]{border:none!important;border-radius:20px!important;background:var(--card);padding:1rem!important;max-width:680px}
-[data-testid="stExpander"]{border:none!important;border-radius:18px!important;background:var(--card);overflow:hidden}
-[data-testid="stAlert"]{border-radius:16px!important;border:none!important}
-[data-testid="stDataFrame"]{border-radius:16px;overflow:hidden}
-[data-baseweb="input"],[data-baseweb="textarea"],[data-baseweb="select"]>div{border-radius:14px!important}
-[data-testid="stImage"] img{border-radius:14px}
+[data-testid="stForm"]{border:1px solid var(--line)!important;border-radius:12px!important;background:var(--card);padding:1rem!important;max-width:680px}
+[data-testid="stExpander"]{border:1px solid var(--line)!important;border-radius:12px!important;background:var(--card);overflow:hidden}
+[data-testid="stAlert"]{border-radius:10px!important;border:none!important}
+[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+[data-baseweb="input"],[data-baseweb="textarea"],[data-baseweb="select"]>div{border-radius:8px!important}
+[data-testid="stImage"] img{border-radius:10px}
 @media (max-width:640px){.block-container{padding-left:.8rem!important;padding-right:.8rem!important}}
 </style>
 """, unsafe_allow_html=True)
@@ -218,18 +224,24 @@ def registrar_fallo(clave: str):
 def limpiar_fallos(clave: str):
     _registro_intentos().pop(clave, None)
  
+def _fijar_seccion(estado, valor):
+    st.session_state[estado] = valor
+ 
 def selector(opciones, clave):
-    # Botones de seccion. Usa "pills" si la version de Streamlit lo trae; si no, botones de radio.
-    if hasattr(st, "pills"):
-        v = st.pills("Secci\u00f3n", opciones, selection_mode="single", default=opciones[0],
-                     key=clave, label_visibility="collapsed")
-    else:
-        v = st.radio("Secci\u00f3n", opciones, horizontal=True, key=clave, label_visibility="collapsed")
-    ultimo = f"{clave}_ult"
-    if v is None:                      # si se desmarca la opcion, se conserva la anterior
-        v = st.session_state.get(ultimo, opciones[0])
-    st.session_state[ultimo] = v
-    return v
+    # Botones de seccion. El activo es el de tipo "primary". Devuelve la opcion elegida.
+    estado = f"{clave}_sel"
+    if st.session_state.get(estado) not in opciones:
+        st.session_state[estado] = opciones[0]
+    try:
+        contenedor = st.container(key=f"nav_{clave}")
+    except TypeError:                  # Streamlit antiguo, sin claves en contenedores
+        contenedor = st.container()
+    with contenedor:
+        cols = st.columns(len(opciones))
+        for n, op in enumerate(opciones):
+            cols[n].button(op, key=f"{clave}_btn_{n}", on_click=_fijar_seccion, args=(estado, op),
+                           type="primary" if st.session_state[estado] == op else "secondary")
+    return st.session_state[estado]
  
 def limpiar_sesion():
     for clave in list(st.session_state.keys()):
@@ -2143,3 +2155,4 @@ with st.expander("Aviso de privacidad"):
         "correcci\u00f3n o eliminaci\u00f3n. No registres a nadie sin autorizaci\u00f3n documentada. "
         "La consulta p\u00fablica del QR muestra \u00fanicamente nombre, cargo, bases y fotograf\u00eda, y nunca el DNI ni el tel\u00e9fono."
     )
+ 
