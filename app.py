@@ -23,7 +23,6 @@ from urllib.parse import quote, unquote
 import pandas as pd
 import requests
 import qrcode
-import altair as alt
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 st.set_page_config(
@@ -46,6 +45,8 @@ header,[data-testid="stHeader"],#MainMenu,.stDeployButton,footer,
 @st.cache_resource
 def conectar_supabase():
     url = st.secrets["SUPABASE_URL"].strip()
+    # En Streamlit Cloud configura SUPABASE_KEY con la clave service_role
+    # SOLO en Secrets del servidor. Nunca la publiques en GitHub ni en el navegador.
     key = st.secrets["SUPABASE_KEY"].strip()
     return create_client(url, key)
 
@@ -101,23 +102,30 @@ def hash_texto(valor: str) -> str:
     return hashlib.sha256(valor.encode("utf-8")).hexdigest()
 
 def _clave_hmac() -> bytes:
+    # Recomendado: define CLAVE_HMAC (texto largo y aleatorio) en Secrets.
+    # Si no existe, se deriva de SUPABASE_KEY para no romper la app.
     secreto = str(st.secrets.get("CLAVE_HMAC", "")).strip()
     if not secreto:
         secreto = "persona_key:" + str(st.secrets["SUPABASE_KEY"])
     return secreto.encode("utf-8")
 
 def clave_persona(dni) -> str:
+    # HMAC con clave secreta: no se puede revertir por fuerza bruta sin la clave.
     return hmac.new(_clave_hmac(), str(dni).strip().encode("utf-8"), hashlib.sha256).hexdigest()
 
 def clave_persona_legacy(dni) -> str:
+    # Formato anterior (SHA-256 sin clave). Solo se usa para encontrar credenciales ya emitidas.
     return hash_texto(str(dni).strip())
 
 def token_credencial(dni, cred_id) -> str:
+    # El codigo del QR no es aleatorio: se calcula con la clave secreta, el DNI y el id de la
+    # credencial. Asi se puede volver a descargar la misma credencial sin guardar el codigo.
     mac = hmac.new(_clave_hmac(), f"token:{str(dni).strip()}:{cred_id}".encode("utf-8"),
                    hashlib.sha256).digest()
     return base64.urlsafe_b64encode(mac).decode("ascii").rstrip("=")
 
 def token_reproducible(dni, cred) -> bool:
+    # True si la credencial se emitio con este sistema (su huella coincide con el codigo calculado).
     try:
         calculado = hash_texto(token_credencial(dni, cred["id"]))
         return hmac.compare_digest(calculado, str(cred.get("token_hash", "")))
@@ -125,6 +133,8 @@ def token_reproducible(dni, cred) -> bool:
         return False
 
 def admin_valido(usuario: str, password: str) -> bool:
+    # Compatibilidad con los Secrets de la aplicacion anterior:
+    # se acepta ADMIN_PASSWORD (texto en Secrets) o ADMIN_PASSWORD_HASH.
     esperado_usuario = str(st.secrets.get("ADMIN_USER", "")).strip()
     esperado_hash = str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip()
     esperado_password = str(st.secrets.get("ADMIN_PASSWORD", ""))
@@ -136,6 +146,7 @@ def admin_valido(usuario: str, password: str) -> bool:
 
 MAX_INTENTOS = 5
 VENTANA_SEG = 15 * 60
+# Hash de relleno para que el tiempo de respuesta sea similar si el usuario no existe.
 HASH_FICTICIO = "0" * 32 + "$" + "0" * 64
 
 @st.cache_resource
@@ -180,6 +191,7 @@ for k, v in {
 # DATOS
 # ---------------------------------------------------------------------
 def traer_todo(construir, tam=1000):
+    # Supabase devuelve como maximo 1000 filas por consulta; se pide por paginas.
     filas, ini = [], 0
     while True:
         bloque = construir().range(ini, ini + tam - 1).execute().data or []
@@ -232,6 +244,7 @@ def ubicacion_texto(base):
     return " / ".join(x for x in (base.get("provincia"), base.get("distrito")) if x)
 
 def excel_multihoja(hojas, titulo=None):
+    # hojas: {nombre: DataFrame}. Encabezado con estilo, filtros, panel fijo y columnas ajustadas.
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
     archivo = io.BytesIO()
@@ -261,7 +274,7 @@ def excel_multihoja(hojas, titulo=None):
                 for celda in fila:
                     if isinstance(celda.value, str):
                         if celda.value.startswith("="):
-                            celda.data_type = "s"
+                            celda.data_type = "s"   # texto, nunca formula
                         celda.number_format = "@"
     archivo.seek(0)
     return archivo.getvalue()
@@ -290,6 +303,7 @@ def dataframe_detallado(filas, mapa_bases):
     return pd.DataFrame(salida, columns=COLUMNAS_DETALLE)
 
 def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
+    # Lista imprimible de una base. con_firma=True anade columna de firma (asistencia).
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -352,6 +366,7 @@ def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
     return buf.getvalue()
 
 def botones_lista(base, miembros, clave):
+    # Tres descargas de la lista de una base: Excel, PDF y PDF con columna de firma.
     nombre = base.get("nombre_base", "base")
     archivo = nombre_archivo_seguro(nombre)
     ubic = ubicacion_texto(base)
@@ -397,6 +412,8 @@ def ext_imagen(archivo) -> str:
     return "png" if getattr(archivo, "type", "") == "image/png" else "jpg"
 
 def procesar_foto(archivo, lado_max=900) -> bytes:
+    # Valida que sea una imagen real, corrige la orientacion, reduce el tamano
+    # y la guarda como JPEG nuevo (asi se eliminan metadatos EXIF/GPS).
     try:
         im = Image.open(io.BytesIO(archivo.getvalue()))
         im.load()
@@ -454,6 +471,7 @@ def activar_plantilla(pid):
 # CREDENCIALES QR
 # ---------------------------------------------------------------------
 def credencial_de_dni(dni):
+    # Busca con la clave nueva (HMAC) y con la anterior, para no duplicar credenciales ya emitidas.
     claves = list({clave_persona(dni), clave_persona_legacy(dni)})
     filas = (supabase.table("credenciales")
              .select("id,integrante_id,estado,emitida_en,token_hash").in_("persona_key", claves)
@@ -461,6 +479,7 @@ def credencial_de_dni(dni):
     return filas[0] if filas else None
 
 def escribir_credencial(existente_id, fila):
+    # "fila" trae un id nuevo: asi el codigo del QR cambia y el anterior deja de valer.
     if existente_id:
         try:
             supabase.table("credenciales").update(fila).eq("id", existente_id).execute()
@@ -471,6 +490,7 @@ def escribir_credencial(existente_id, fila):
     supabase.table("credenciales").insert(fila).execute()
 
 def emitir_credencial(integrante, plantilla_id, cred_id, token):
+    # Un DNI = una credencial.
     dni = str(integrante["dni"]).strip()
     existente = credencial_de_dni(dni)
     fila = {
@@ -494,6 +514,7 @@ def datos_bases_por_dni(dni):
             .in_("id", ids).execute().data or [])
 
 def generar_clave(n=12):
+    # Sin caracteres que se confunden (0/O, 1/l/I). Siempre con letras y numeros.
     alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
     while True:
         clave = "".join(secrets.choice(alfabeto) for _ in range(n))
@@ -501,6 +522,7 @@ def generar_clave(n=12):
             return clave
 
 def ruta_de_foto(url):
+    # De la URL publica de la foto saca su ruta dentro del bucket.
     if not url:
         return None
     marca = f"/{BUCKET_FOTOS}/"
@@ -517,6 +539,8 @@ def borrar_fotos(urls):
             logger.warning("No se pudieron borrar fotos: %r", e)
 
 def liberar_credencial(integrante):
+    # Se usa cuando a una persona se le cambia el DNI: su credencial (ligada al DNI anterior)
+    # pasa a otro registro de la misma persona si existe; si no, se elimina.
     dni = str(integrante["dni"]).strip()
     cred = credencial_de_dni(dni)
     if not cred or cred.get("integrante_id") != integrante["id"]:
@@ -529,11 +553,13 @@ def liberar_credencial(integrante):
         supabase.table("credenciales").delete().eq("id", cred["id"]).execute()
 
 def eliminar_integrantes(integrantes):
+    # Elimina uno o muchos integrantes con todo lo que depende de ellos.
     if not integrantes:
         return
     ids = [i["id"] for i in integrantes]
     ids_set = set(ids)
     dni_de = {i["id"]: str(i.get("dni", "")).strip() for i in integrantes}
+    # Otros registros de la misma persona que se conservan (otra base con el mismo DNI).
     conservados = {}
     dnis = [d for d in set(dni_de.values()) if d]
     for k in range(0, len(dnis), 50):
@@ -542,6 +568,7 @@ def eliminar_integrantes(integrantes):
         for f in filas:
             if f["id"] not in ids_set:
                 conservados.setdefault(str(f["dni"]).strip(), f["id"])
+    # Credenciales: pasan a otro registro de la misma persona o se eliminan.
     for k in range(0, len(ids), 100):
         creds = (supabase.table("credenciales").select("id,integrante_id")
                  .in_("integrante_id", ids[k:k + 100]).execute().data or [])
@@ -585,6 +612,7 @@ def descargar_bytes(url):
 
 @st.cache_data(ttl=600, show_spinner=False)
 def bytes_plantilla(path):
+    # La plantilla se descarga una sola vez y se reutiliza.
     return descargar_bytes(url_plantilla(path))
 
 def imagen_plantilla(path):
@@ -593,6 +621,7 @@ def imagen_plantilla(path):
     return im.convert("RGBA")
 
 def precargar_fotos(urls, max_hilos=8):
+    # Descarga las fotos en paralelo (sin tocar Streamlit dentro de los hilos).
     def bajar(u):
         try:
             im = Image.open(io.BytesIO(descargar_bytes(u)))
@@ -623,12 +652,14 @@ def _png(imagen):
     return b.getvalue()
 
 def generar_lote(personas, plantilla, dni_bases, progreso=None, existentes=None):
+    # Genera las imagenes en memoria. No toca la base de datos: eso se hace despues.
     fotos = precargar_fotos(list({p["foto_url"] for p in personas if p.get("foto_url")}))
     resultados, errores = [], []
     for i, p in enumerate(personas, start=1):
         try:
             dni_p = str(p["dni"]).strip()
             if existentes is not None:
+                # Volver a descargar: se reconstruye el mismo codigo de la credencial existente.
                 cred = existentes[dni_p]
                 if not token_reproducible(dni_p, cred):
                     raise ValueError("credencial emitida con una versi\u00f3n anterior")
@@ -685,7 +716,7 @@ def guardar_credenciales_lote(resultados, plantilla_id):
 
 def zip_credenciales(resultados):
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:   # los PNG ya vienen comprimidos
         for i, r in enumerate(resultados, start=1):
             p = r["persona"]
             nombre = (f'{i:03d}_{nombre_archivo_seguro(p.get("apellidos", ""))}_'
@@ -703,6 +734,7 @@ def pdf_credenciales(resultados, hoja_a4=False):
     cw, ch = 85.6 * mm, 54 * mm
     buf = io.BytesIO()
     if not hoja_a4:
+        # Una credencial por pagina, respetando la proporcion de la imagen.
         c = canvas.Canvas(buf, pagesize=(cw, ch))
         for r in resultados:
             for clave in ("frente_png", "reverso_png"):
@@ -717,6 +749,8 @@ def pdf_credenciales(resultados, hoja_a4=False):
                 c.showPage()
         c.save()
         return buf.getvalue()
+    # Hojas A4 con 8 credenciales (2 x 4). Primero los frentes y luego los reversos,
+    # con las columnas invertidas para que coincidan al imprimir a doble cara.
     pw_a4, ph_a4 = A4
     cols, filas = 2, 4
     gap = 5 * mm
@@ -757,6 +791,8 @@ def crear_qr(url):
 
 @lru_cache(maxsize=128)
 def cargar_fuente(tamano, negrita=False):
+    # Busca una fuente real en el sistema. Si el servidor no tiene ninguna, usa la
+    # interna de Pillow con el tamano pedido (antes salia diminuta e ignoraba el tamano).
     def ruta(carpeta, normal, bold):
         return f"{carpeta}/{bold if negrita else normal}"
     candidatos = [
@@ -771,7 +807,7 @@ def cargar_fuente(tamano, negrita=False):
         "arialbd.ttf" if negrita else "arial.ttf",
     ]
     try:
-        import matplotlib
+        import matplotlib   # si esta instalado, trae DejaVu incluida
         base = os.path.join(matplotlib.get_data_path(), "fonts", "ttf")
         candidatos.append(os.path.join(base, "DejaVuSans-Bold.ttf" if negrita else "DejaVuSans.ttf"))
     except Exception:
@@ -782,7 +818,7 @@ def cargar_fuente(tamano, negrita=False):
         except Exception:
             pass
     try:
-        return ImageFont.load_default(size=tamano)
+        return ImageFont.load_default(size=tamano)   # Pillow 10.1 o superior
     except Exception:
         return ImageFont.load_default()
 
@@ -802,6 +838,9 @@ def ajustar_texto(dibujo, texto, fuente, ancho_max):
         lineas.append(actual)
     return lineas or [""]
 
+# Distribuciones predefinidas. Todas las medidas son proporciones (0 a 1) del ancho y
+# del alto de la imagen, asi funcionan aunque la plantilla tenga otro tamano.
+# En "campos", "y" es la altura de la linea sobre la que se escribe el dato.
 DISENOS_PREDEFINIDOS = {
     "Marcos y l\u00edneas (ejemplo Puno)": {
         "version": 1,
@@ -822,10 +861,12 @@ DISENOS_PREDEFINIDOS = {
     },
 }
 
+# Si una plantilla con imagen no tiene distribucion guardada, se usa esta.
 DISENO_POR_DEFECTO = "Marcos y l\u00edneas (ejemplo Puno)"
 
 @st.cache_data(ttl=300, show_spinner=False)
 def cargar_diseno(plantilla_id):
+    # La distribucion de cada plantilla se guarda como diseno.json junto a sus imagenes.
     if not plantilla_id:
         return None
     try:
@@ -850,6 +891,7 @@ def guardar_diseno(plantilla_id, diseno):
     cargar_diseno.clear()
 
 def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=True):
+    # Escribe sobre una linea: reduce la letra si no cabe y, en ultimo caso, recorta con "...".
     t = tam
     fuente = cargar_fuente(t, negrita)
     minimo = max(10, int(tam * 0.55))
@@ -881,6 +923,7 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
                 foto = descargar_imagen(integrante["foto_url"]).convert("RGB")
         except Exception:
             foto = None
+        # Sin foto se conserva el dibujo de la plantilla (por ejemplo, la silueta).
         if foto is not None:
             lienzo.paste(ImageOps.fit(foto, (fw, fh), centering=(0.5, 0.35)), (fx, fy))
     q = diseno.get("qr")
@@ -916,6 +959,7 @@ def foto_demo():
 
 def eliminar_plantilla(p):
     pid = p["id"]
+    # Las credenciales ya emitidas se conservan: solo dejan de apuntar a esta plantilla.
     supabase.table("credenciales").update({"plantilla_id": None}).eq("plantilla_id", pid).execute()
     supabase.table("plantillas_credenciales").delete().eq("id", pid).execute()
     rutas = [r for r in (p.get("frontal_path"), p.get("posterior_path"), f"{pid}/diseno.json") if r]
@@ -1000,6 +1044,7 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
     if path:
         lienzo = imagen_plantilla(path)
     else:
+        # Plantilla predeterminada si no se cargo una imagen.
         lienzo = Image.new("RGBA", (1011, 638), "#F4F7FB")
         d = ImageDraw.Draw(lienzo)
         d.rounded_rectangle((8, 8, 1003, 630), radius=28, outline="#163B65", width=12)
@@ -1034,6 +1079,7 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
     if diseno:
         return aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img)
 
+    # Coordenadas relativas para adaptarse a plantillas horizontales o verticales.
     margen = int(w * .055)
     foto_size = int(min(w, h) * .36)
     foto_x, foto_y = margen, int(h * .29)
@@ -1081,7 +1127,7 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
     return lienzo.convert("RGB")
 
 # ---------------------------------------------------------------------
-# VERIFICACI\u00d3N P\u00daBLICA DEL QR
+# VERIFICACION PUBLICA DEL QR
 # ---------------------------------------------------------------------
 st.title("\U0001f5f3\ufe0f Registro de Bases y Comandos")
 token_qr = st.query_params.get("verificar")
@@ -1186,68 +1232,21 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         try:
             bases = cargar_bases()
             integrantes = cargar_integrantes()
-            
-            # --- MÉTRICAS PRINCIPALES ---
-            st.subheader("📊 Panel de Control")
-            c1, c2, c3 = st.columns(3)
+            c1, c2 = st.columns(2)
             c1.metric("Bases registradas", len(bases))
-            c2.metric("Integrantes registrados", len(integrantes))
-            
-            try:
-                creds = traer_todo(lambda: supabase.table("credenciales").select("id,estado").order("id"))
-                vigentes = sum(1 for c in creds if c.get("estado") == "vigente")
-                c3.metric("Credenciales vigentes", vigentes)
-            except Exception:
-                c3.metric("Credenciales vigentes", "N/A")
-
+            c2.metric("Registros de integrantes", len(integrantes))
             if bases:
-                # --- GRÁFICO DE BARRAS: BASES POR PROVINCIA ---
-                st.divider()
-                df_bases = pd.DataFrame([{
-                    "Provincia": b.get("provincia") or "Sin asignar",
-                } for b in bases])
-                
-                st.write("**Bases por Provincia**")
-                st.bar_chart(df_bases["Provincia"].value_counts(), color="#163B65")
-
-                # --- GRÁFICO CIRCULAR: INTEGRANTES POR CARGO ---
-                if integrantes:
-                    st.divider()
-                    df_integrantes = pd.DataFrame([{
-                        "Cargo": f.get("cargo") or "Sin cargo",
-                    } for f in integrantes])
-                    conteo_cargos = df_integrantes["Cargo"].value_counts().reset_index()
-                    conteo_cargos.columns = ["Cargo", "Cantidad"]
-                    
-                    chart = alt.Chart(conteo_cargos).mark_arc(innerRadius=50).encode(
-                        theta=alt.Theta(field="Cantidad", type="quantitative"),
-                        color=alt.Color(field="Cargo", type="nominal"),
-                        tooltip=["Cargo", "Cantidad"]
-                    ).properties(title="Distribución de Integrantes por Cargo", height=300)
-                    st.altair_chart(chart, use_container_width=True)
-
-                    # --- GRÁFICO DE LÍNEAS: REGISTROS POR DÍA ---
-                    st.divider()
-                    df_fechas = pd.DataFrame([{
-                        "Fecha": str(f.get("fecha_registro", ""))[:10],
-                    } for f in integrantes if f.get("fecha_registro")])
-                    if not df_fechas.empty:
-                        registros_por_dia = df_fechas["Fecha"].value_counts().sort_index().tail(7)
-                        st.write("**Registros nuevos (últimos 7 días)**")
-                        st.line_chart(registros_por_dia, color="#2E7D32")
-
-                # --- TABLAS DE DETALLE ---
-                st.divider()
-                st.write("**Detalle de Bases**")
-                df_tabla = pd.DataFrame([{
+                df = pd.DataFrame([{
                     "Base": b.get("nombre_base", ""),
                     "Provincia": b.get("provincia") or "Sin asignar",
                     "Distrito": b.get("distrito") or "Sin asignar",
                     "Usuario": b.get("usuario", "")
                 } for b in bases])
-                st.dataframe(df_tabla, use_container_width=True, hide_index=True)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df.groupby("Provincia").size().reset_index(name="Cantidad"),
+                             use_container_width=True, hide_index=True)
             else:
-                st.info("Todavía no hay bases registradas.")
+                st.info("Todav\u00eda no hay bases registradas.")
         except Exception as e:
             error_supabase("No se pudo cargar el resumen.", e)
 
@@ -1633,11 +1632,13 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 opciones = {f'{nombre_completo(f)} (DNI: {dni})': f for dni, f in unicos.items()}
                 seleccion = st.selectbox("Selecciona al integrante", list(opciones.keys()))
                 integrante = opciones[seleccion]
+                # Recupera las bases asociadas al mismo DNI; no publica DNI en el QR.
                 bases_info = datos_bases_por_dni(integrante["dni"])
                 principal = next((b for b in bases_info if b["id"] == integrante.get("base_id")),
                                  bases_info[0] if bases_info else {})
                 integrante_render = dict(integrante)
                 integrante_render["nombre_base"] = ", ".join(b["nombre_base"] for b in bases_info)
+                # Antes la provincia y el distrito salian vacios en la credencial.
                 integrante_render["provincia"] = principal.get("provincia") or ""
                 integrante_render["distrito"] = principal.get("distrito") or ""
                 plantillas = listar_plantillas()
@@ -1652,20 +1653,33 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.write(f'**Integrante:** {nombre_completo(integrante)}')
                 st.write(f'**Plantilla:** {plantilla["nombre"]}')
                 cred_actual = credencial_de_dni(integrante["dni"])
-                if cred_actual:
+                vigente = bool(cred_actual) and cred_actual.get("estado") == "vigente"
+                accion = None
+                if vigente:
                     st.write(f'**Estado de la credencial:** {cred_actual["estado"]} \u00b7 emitida el {str(cred_actual.get("emitida_en", ""))[:10]}')
+                    if token_reproducible(integrante["dni"], cred_actual):
+                        if st.button("Volver a descargar credencial", type="primary", key="redescargar_cred"):
+                            accion = "descargar"
+                        st.caption("Muestra la misma credencial, con el mismo QR. No cambia nada.")
+                    else:
+                        st.info("Esta credencial se emiti\u00f3 con una versi\u00f3n anterior y no se puede volver a descargar. "
+                                "Elim\u00ednala y gen\u00e9rala de nuevo una sola vez; desde entonces ya podr\u00e1s volver a descargarla.")
                     confirma_borrar = st.checkbox("Confirmo que quiero eliminar esta credencial",
                                                   key=f'credencial_conf_{integrante["dni"]}')
                     if st.button("Eliminar credencial", key="eliminar_cred", disabled=not confirma_borrar):
                         supabase.table("credenciales").delete().eq("id", cred_actual["id"]).execute()
                         st.session_state.pop("credencial_generada", None)
                         st.session_state.pop("credencial_reverso", None)
-                        st.success("Credencial eliminada. Su QR ya no es v\u00e1lido. Puedes generar una nueva cuando quieras.")
-                if st.button("Generar / renovar credencial", type="primary"):
+                        st.success("Credencial eliminada. Su QR ya no es v\u00e1lido. Ahora puedes generar una nueva.")
+                elif st.button("Generar credencial", type="primary", key="generar_cred"):
+                    accion = "nueva"
+                if accion:
                     if not APP_PUBLIC_URL:
                         st.error("No se puede emitir un QR funcional hasta configurar APP_PUBLIC_URL.")
                     else:
-                        token = secrets.token_urlsafe(32)
+                        # Primero se generan las imagenes; solo se guarda en la base si todo salio bien.
+                        cred_id = cred_actual["id"] if accion == "descargar" else str(uuid.uuid4())
+                        token = token_credencial(integrante["dni"], cred_id)
                         url_qr = f"{APP_PUBLIC_URL}/?verificar={quote(token)}"
                         frente = componer_credencial(integrante_render, plantilla, url_qr, "frontal")
                         buffer = io.BytesIO()
@@ -1676,7 +1690,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             rb = io.BytesIO()
                             reverso.save(rb, format="PNG")
                             reverso_bytes = rb.getvalue()
-                        emitir_credencial(integrante, plantilla.get("id"), token)
+                        if accion == "nueva":
+                            emitir_credencial(integrante, plantilla.get("id"), cred_id, token)
                         st.session_state["credencial_generada"] = buffer.getvalue()
                         st.session_state["credencial_dni"] = str(integrante["dni"])
                         st.session_state["credencial_nombre"] = re.sub(r"[^A-Za-z0-9_-]", "_", str(integrante["dni"]))
@@ -1684,7 +1699,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             st.session_state["credencial_reverso"] = reverso_bytes
                         else:
                             st.session_state.pop("credencial_reverso", None)
-                        st.success("Credencial generada. Escanea el QR para probar la verificaci\u00f3n.")
+                        if accion == "descargar":
+                            st.success("Credencial lista para descargar. Es la misma de siempre, con el mismo QR.")
+                        else:
+                            st.success("Credencial generada. Escanea el QR para probar la verificaci\u00f3n.")
                 if (st.session_state.get("credencial_generada")
                         and st.session_state.get("credencial_dni") == str(integrante["dni"])):
                     st.image(st.session_state["credencial_generada"], caption="Vista previa")
@@ -1728,6 +1746,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         f_zip = "ZIP con im\u00e1genes PNG"
         f_pdf = "PDF (una credencial por p\u00e1gina)"
         f_a4 = "PDF A4 para imprimir (8 por hoja)"
+        M_FALTAN = "Generar las que a\u00fan no tienen credencial"
+        M_DESCARGAR = "Volver a descargar las ya generadas"
         if not APP_PUBLIC_URL:
             st.warning("Configura APP_PUBLIC_URL en Secrets para que los QR abran la verificaci\u00f3n.")
         else:
@@ -1747,10 +1767,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     opciones = {"Todas las bases": None}
                     for b in bases:
                         opciones[f'{b["nombre_base"]} \u2014 {b.get("provincia") or ""}/{b.get("distrito") or ""} (ID {b["id"]})'] = b["id"]
-                    c1, c2 = st.columns(2)
-                    sel = c1.selectbox("Base", list(opciones.keys()), key="lote_base")
-                    solo_nuevas = c2.checkbox("Solo personas que a\u00fan no tienen credencial",
-                                              value=True, key="lote_solo_nuevas")
+                    sel = st.selectbox("Base", list(opciones.keys()), key="lote_base")
+                    modo = st.radio("\u00bfQu\u00e9 quieres hacer?", [M_FALTAN, M_DESCARGAR], key="lote_modo")
                     id_base = opciones[sel]
                     unicos = {}
                     for f in todos:
@@ -1760,55 +1778,56 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     personas = sorted(unicos.values(), key=lambda x: (str(x.get("apellidos", "")).lower(),
                                                                        str(x.get("nombres", "")).lower()))
                     estados_cred = mapa_estados_credenciales()
-                    estados = {}
+                    estados, filas_cred = {}, {}
                     for p in personas:
                         d = str(p["dni"]).strip()
-                        estados[d] = (estados_cred.get(clave_persona(d))
-                                      or estados_cred.get(clave_persona_legacy(d)) or "sin credencial")
+                        fila_c = estados_cred.get(clave_persona(d)) or estados_cred.get(clave_persona_legacy(d))
+                        if fila_c:
+                            filas_cred[d] = fila_c
+                        estados[d] = fila_c["estado"] if fila_c else "sin credencial"
                     m1, m2, m3, m4 = st.columns(4)
                     m1.metric("Personas", len(personas))
                     m2.metric("Sin credencial", sum(1 for v in estados.values() if v == "sin credencial"))
                     m3.metric("Vigentes", sum(1 for v in estados.values() if v == "vigente"))
                     m4.metric("Revocadas", sum(1 for v in estados.values() if v == "revocada"))
-                    if solo_nuevas:
+                    if modo == M_FALTAN:
                         cola = [p for p in personas if estados[str(p["dni"]).strip()] == "sin credencial"]
                     else:
-                        cola = personas
+                        cola = [p for p in personas if estados[str(p["dni"]).strip()] == "vigente"]
                     if not cola:
-                        st.info("No hay personas pendientes con este filtro.")
+                        st.info("No hay personas para esta opci\u00f3n con este filtro.")
                     else:
                         tam = st.selectbox("Credenciales por tanda", [25, 50, 100], index=1, key="lote_tam")
                         n_tandas = -(-len(cola) // tam)
-                        if solo_nuevas or n_tandas == 1:
+                        if modo == M_FALTAN or n_tandas == 1:
                             tanda = 1
                         else:
                             tanda = st.number_input("Tanda", min_value=1, max_value=n_tandas,
                                                     value=1, step=1, key="lote_tanda")
                         lote = cola[(tanda - 1) * tam: tanda * tam]
-                        extra = f", tanda {tanda} de {n_tandas}" if (not solo_nuevas and n_tandas > 1) else ""
-                        st.write(f"Se generar\u00e1n **{len(lote)}** credenciales ({len(cola)} pendientes en total{extra}).")
+                        extra = f", tanda {tanda} de {n_tandas}" if (modo != M_FALTAN and n_tandas > 1) else ""
+                        st.write(f"Se preparar\u00e1n **{len(lote)}** credenciales ({len(cola)} en total{extra}).")
                         formatos = st.multiselect("Formatos de descarga", [f_zip, f_pdf, f_a4],
                                                   default=[f_zip, f_a4], key="lote_formatos")
-                        confirmar = True
-                        if not solo_nuevas:
-                            confirmar = st.checkbox(
-                                "Entiendo que al renovar, los QR anteriores de estas personas dejar\u00e1n de funcionar.",
-                                key="lote_confirmar")
+                        etiqueta = "Generar" if modo == M_FALTAN else "Descargar"
                         plantilla = plantilla_activa()
                         st.caption(f'Plantilla: {plantilla["nombre"]}')
-                        if st.button(f"Generar {len(lote)} credenciales", type="primary",
-                                     disabled=not (confirmar and formatos), key="lote_generar"):
+                        if st.button(f"{etiqueta} {len(lote)} credenciales", type="primary",
+                                     disabled=not formatos, key="lote_generar"):
                             barra = st.progress(0.0, text="Preparando\u2026")
 
                             def avance(i, total):
                                 barra.progress(i / total, text=f"Generando credencial {i} de {total}\u2026")
 
-                            resultados, errores = generar_lote(lote, plantilla, dni_bases, avance)
+                            existentes = ({str(p["dni"]).strip(): filas_cred[str(p["dni"]).strip()] for p in lote}
+                                          if modo == M_DESCARGAR else None)
+                            resultados, errores = generar_lote(lote, plantilla, dni_bases, avance, existentes)
                             if resultados:
-                                barra.progress(1.0, text="Guardando en la base de datos\u2026")
-                                guardar_credenciales_lote(resultados, plantilla.get("id"))
+                                if modo == M_FALTAN:
+                                    barra.progress(1.0, text="Guardando en la base de datos\u2026")
+                                    guardar_credenciales_lote(resultados, plantilla.get("id"))
                                 archivos = {"sello": datetime.now().strftime("%Y%m%d_%H%M"),
-                                            "n": len(resultados),
+                                            "n": len(resultados), "descarga": modo == M_DESCARGAR,
                                             "errores": [nombre_completo(p) for p in errores]}
                                 if f_zip in formatos:
                                     archivos["zip"] = zip_credenciales(resultados)
@@ -1826,11 +1845,17 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             barra.empty()
                     archivos = st.session_state.get("lote_archivos")
                     if archivos:
-                        st.success(f'{archivos["n"]} credenciales generadas y registradas.')
+                        if archivos.get("descarga"):
+                            st.success(f'{archivos["n"]} credenciales listas para descargar (mismos QR de siempre).')
+                        else:
+                            st.success(f'{archivos["n"]} credenciales generadas y registradas.')
                         if archivos["errores"]:
-                            st.warning("No se pudieron generar: " + ", ".join(archivos["errores"]))
-                        st.caption("Desc\u00e1rgalas ahora: por seguridad el sistema no guarda el QR, solo su huella. "
-                                   "Si las pierdes, habr\u00e1 que renovarlas.")
+                            st.warning("No se pudieron preparar: " + ", ".join(archivos["errores"]))
+                            if archivos.get("descarga"):
+                                st.caption("Esas credenciales se emitieron con una versi\u00f3n anterior. Elim\u00ednalas desde "
+                                           "\u00abCredenciales generadas\u00bb y gen\u00e9ralas de nuevo una sola vez.")
+                        st.caption("Si pierdes los archivos, puedes volver a descargarlas con la opci\u00f3n "
+                                   "\u00abVolver a descargar las ya generadas\u00bb.")
                         d1, d2, d3 = st.columns(3)
                         if archivos.get("zip"):
                             d1.download_button("Descargar ZIP (PNG)", archivos["zip"],
@@ -2026,6 +2051,8 @@ if st.session_state.base_id is not None:
                     else:
                         url_foto = None
                         if foto is not None:
+                            # La imagen se revalida y se recomprime (sin metadatos/GPS),
+                            # y el nombre del archivo ya no contiene el DNI.
                             datos_foto = procesar_foto(foto)
                             path = f"{base_id}/{uuid.uuid4().hex}.jpg"
                             url_foto = subir_archivo(BUCKET_FOTOS, path, datos_foto, "image/jpeg")
