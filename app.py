@@ -27,15 +27,229 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 st.set_page_config(
     page_title="Registro de Bases y Comandos",
-    page_icon="\U0001f5f3\ufe0f",
+    page_icon="ðŸ—³ï¸",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown("""
 <style>
-header,[data-testid="stHeader"],#MainMenu,.stDeployButton,footer,
-[data-testid="stToolbar"],[data-testid="stDecoration"] {visibility:hidden!important;display:none!important}
-.block-container {padding-top:1rem!important}
+/* â€”â€”â€” Ocultar chrome de Streamlit â€”â€”â€” */
+header, [data-testid="stHeader"], #MainMenu, .stDeployButton, footer,
+[data-testid="stToolbar"], [data-testid="stDecoration"] {
+    visibility: hidden !important;
+    display: none !important;
+}
+
+/* â€”â€”â€” Base â€”â€”â€” */
+html, body, [class*="css"] {
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+.block-container {
+    padding-top: 1.25rem !important;
+    padding-bottom: 2.5rem !important;
+    max-width: 1280px;
+}
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0f2744 0%, #163b65 55%, #1a4a7a 100%);
+    border-right: 1px solid rgba(255,255,255,0.08);
+}
+[data-testid="stSidebar"] * {
+    color: #e8eef6 !important;
+}
+[data-testid="stSidebar"] .stRadio label,
+[data-testid="stSidebar"] .stSelectbox label {
+    color: #c5d4e8 !important;
+}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+    color: #e8eef6 !important;
+}
+[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,0.12) !important;
+}
+
+/* â€”â€”â€” TipografÃ­a y tÃ­tulos â€”â€”â€” */
+h1, h2, h3 {
+    color: #0f2744 !important;
+    font-weight: 650 !important;
+    letter-spacing: -0.02em;
+}
+h1 { font-size: 1.75rem !important; margin-bottom: 0.35rem !important; }
+h2 { font-size: 1.35rem !important; margin-top: 0.5rem !important; }
+h3 { font-size: 1.1rem !important; }
+
+/* â€”â€”â€” Tarjetas â€”â€”â€” */
+.card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.15rem 1.35rem;
+    box-shadow: 0 1px 3px rgba(15, 39, 68, 0.06);
+    margin-bottom: 1rem;
+}
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid #edf2f7;
+}
+.card-header .icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #e8f0fe;
+    color: #163b65;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+.card-title {
+    font-weight: 650;
+    color: #0f2744;
+    font-size: 1.05rem;
+    margin: 0;
+}
+.card-sub {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+/* â€”â€”â€” Banner de sesiÃ³n â€”â€”â€” */
+.session-banner {
+    background: linear-gradient(135deg, #163b65 0%, #1e4d7b 100%);
+    color: #fff;
+    border-radius: 12px;
+    padding: 0.9rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    box-shadow: 0 4px 14px rgba(22, 59, 101, 0.25);
+}
+.session-banner strong { color: #fff; }
+.session-banner .meta { opacity: 0.9; font-size: 0.9rem; }
+
+/* â€”â€”â€” Login â€”â€”â€” */
+.login-wrap {
+    max-width: 420px;
+    margin: 2rem auto 1rem;
+}
+.login-hero {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+.login-hero .logo {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 0.75rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #163b65, #2a6bb0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    box-shadow: 0 8px 24px rgba(22, 59, 101, 0.3);
+}
+.login-hero h1 {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.25rem !important;
+}
+.login-hero p {
+    color: #64748b;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+/* â€”â€”â€” MÃ©tricas â€”â€”â€” */
+[data-testid="stMetric"] {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+}
+[data-testid="stMetric"] label {
+    color: #64748b !important;
+    font-size: 0.8rem !important;
+}
+[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    color: #0f2744 !important;
+    font-weight: 700 !important;
+}
+
+/* â€”â€”â€” Botones â€”â€”â€” */
+.stButton > button {
+    border-radius: 8px !important;
+    font-weight: 560 !important;
+    transition: all 0.15s ease;
+}
+.stButton > button[kind="primary"] {
+    background: #163b65 !important;
+    border-color: #163b65 !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: #1e4d7b !important;
+    border-color: #1e4d7b !important;
+}
+.stDownloadButton > button {
+    border-radius: 8px !important;
+}
+
+/* â€”â€”â€” Inputs â€”â€”â€” */
+.stTextInput input, .stSelectbox [data-baseweb="select"] > div,
+.stNumberInput input, .stTextArea textarea {
+    border-radius: 8px !important;
+}
+
+/* â€”â€”â€” Tablas â€”â€”â€” */
+[data-testid="stDataFrame"] {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* â€”â€”â€” Alertas â€”â€”â€” */
+.stAlert {
+    border-radius: 10px !important;
+}
+
+/* â€”â€”â€” Separadores â€”â€”â€” */
+hr {
+    margin: 1.25rem 0 !important;
+    border-color: #e2e8f0 !important;
+}
+
+/* â€”â€”â€” Caption y textos secundarios â€”â€”â€” */
+.stCaption, [data-testid="stCaptionContainer"] {
+    color: #64748b !important;
+}
+
+/* â€”â€”â€” Expander â€”â€”â€” */
+[data-testid="stExpander"] {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* â€”â€”â€” Pills / radio horizontal (fallback) â€”â€”â€” */
+div[role="radiogroup"] label {
+    border-radius: 8px !important;
+}
+
+/* â€”â€”â€” Pie de privacidad â€”â€”â€” */
+.privacy-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 1rem 1.15rem;
+    color: #475569;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -85,75 +299,146 @@ CARGOS = ["Militante", "Coordinador de base", "Secretario de organizaci\u00f3n",
 # ---------------------------------------------------------------------
 # SEGURIDAD Y SESION
 # ---------------------------------------------------------------------
+PBKDF2_ITERACIONES = 310000
+MAX_PASSWORD_LEN = 128
+MAX_USUARIO_LEN = 64
+MAX_TOKEN_QR_LEN = 200
+MAX_INTENTOS = 5
+VENTANA_SEG = 15 * 60
+
+
 def crear_hash(password: str) -> str:
+    if not isinstance(password, str) or not password or len(password) > MAX_PASSWORD_LEN:
+        raise ValueError("ContraseÃ±a invÃ¡lida.")
     salt = secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 310000).hex()
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), bytes.fromhex(salt), PBKDF2_ITERACIONES
+    ).hex()
     return f"{salt}${digest}"
+
 
 def verificar_password(password: str, guardada: str) -> bool:
     try:
+        if not isinstance(password, str) or not password or len(password) > MAX_PASSWORD_LEN:
+            return False
+        if not isinstance(guardada, str) or "$" not in guardada:
+            return False
         salt, digest = guardada.split("$", 1)
-        calculado = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 310000).hex()
+        if len(salt) != 32 or len(digest) != 64:
+            return False
+        calculado = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), bytes.fromhex(salt), PBKDF2_ITERACIONES
+        ).hex()
         return hmac.compare_digest(calculado, digest)
     except (ValueError, TypeError, AttributeError):
         return False
 
-def hash_texto(valor: str) -> str:
-    return hashlib.sha256(valor.encode("utf-8")).hexdigest()
 
+# Hash de relleno con formato vÃ¡lido. El costo real se aplica en verificar_password
+# (mismo camino PBKDF2) cuando el usuario no existe.
+HASH_FICTICIO = "0" * 32 + "$" + "0" * 64
+
+
+def hash_texto(valor: str) -> str:
+    return hashlib.sha256(str(valor).encode("utf-8")).hexdigest()
+
+
+@lru_cache(maxsize=1)
 def _clave_hmac() -> bytes:
-    # Recomendado: define CLAVE_HMAC (texto largo y aleatorio) en Secrets.
-    # Si no existe, se deriva de SUPABASE_KEY para no romper la app.
+    # Preferir CLAVE_HMAC (texto largo y aleatorio) en Secrets.
+    # Fallback compatible: deriva de SUPABASE_KEY para no invalidar credenciales ya emitidas.
     secreto = str(st.secrets.get("CLAVE_HMAC", "")).strip()
     if not secreto:
         secreto = "persona_key:" + str(st.secrets["SUPABASE_KEY"])
+    if len(secreto) < 16:
+        # Evita claves triviales; no rompe el arranque, pero endurece un poco el mÃ­nimo.
+        secreto = hash_texto("hmac_min:" + secreto) + secreto
     return secreto.encode("utf-8")
+
 
 def clave_persona(dni) -> str:
     # HMAC con clave secreta: no se puede revertir por fuerza bruta sin la clave.
     return hmac.new(_clave_hmac(), str(dni).strip().encode("utf-8"), hashlib.sha256).hexdigest()
 
+
 def clave_persona_legacy(dni) -> str:
-    # Formato anterior (SHA-256 sin clave). Solo se usa para encontrar credenciales ya emitidas.
+    # Formato anterior (SHA-256 sin clave). Solo para localizar credenciales ya emitidas.
     return hash_texto(str(dni).strip())
 
+
 def token_credencial(dni, cred_id) -> str:
-    # El codigo del QR no es aleatorio: se calcula con la clave secreta, el DNI y el id de la
-    # credencial. Asi se puede volver a descargar la misma credencial sin guardar el codigo.
-    mac = hmac.new(_clave_hmac(), f"token:{str(dni).strip()}:{cred_id}".encode("utf-8"),
-                   hashlib.sha256).digest()
+    # El cÃ³digo del QR no es aleatorio: HMAC(DNI, cred_id). AsÃ­ se puede reimprimir sin guardar el token.
+    mac = hmac.new(
+        _clave_hmac(),
+        f"token:{str(dni).strip()}:{cred_id}".encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
     return base64.urlsafe_b64encode(mac).decode("ascii").rstrip("=")
 
+
 def token_reproducible(dni, cred) -> bool:
-    # True si la credencial se emitio con este sistema (su huella coincide con el codigo calculado).
     try:
         calculado = hash_texto(token_credencial(dni, cred["id"]))
         return hmac.compare_digest(calculado, str(cred.get("token_hash", "")))
     except Exception:
         return False
 
+
+def token_qr_valido_formato(token: str) -> bool:
+    # Rechaza tokens vacÃ­os, demasiado largos o con caracteres fuera de base64url.
+    if not token or not isinstance(token, str):
+        return False
+    t = token.strip()
+    if not (16 <= len(t) <= MAX_TOKEN_QR_LEN):
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9_\-]+", t))
+
+
 def admin_valido(usuario: str, password: str) -> bool:
-    # Compatibilidad con los Secrets de la aplicacion anterior:
-    # se acepta ADMIN_PASSWORD (texto en Secrets) o ADMIN_PASSWORD_HASH.
+    # Preferir ADMIN_PASSWORD_HASH. ADMIN_PASSWORD (texto) se mantiene solo por compatibilidad.
     esperado_usuario = str(st.secrets.get("ADMIN_USER", "")).strip()
     esperado_hash = str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip()
     esperado_password = str(st.secrets.get("ADMIN_PASSWORD", ""))
-    if not esperado_usuario or not hmac.compare_digest(usuario.strip().encode(), esperado_usuario.encode()):
+    u = (usuario or "").strip()
+    if not esperado_usuario or not u or len(u) > MAX_USUARIO_LEN:
+        # Trabajo dummy para acercar el tiempo de respuesta.
+        verificar_password(password or "x", HASH_FICTICIO)
+        return False
+    if not hmac.compare_digest(u.encode("utf-8"), esperado_usuario.encode("utf-8")):
+        verificar_password(password or "x", HASH_FICTICIO)
         return False
     if esperado_hash:
         return verificar_password(password, esperado_hash)
-    return bool(esperado_password) and hmac.compare_digest(password.encode(), esperado_password.encode())
+    if esperado_password and len(esperado_password) <= MAX_PASSWORD_LEN:
+        return hmac.compare_digest(
+            (password or "").encode("utf-8"),
+            esperado_password.encode("utf-8"),
+        )
+    return False
 
-MAX_INTENTOS = 5
-VENTANA_SEG = 15 * 60
-# Hash de relleno para que el tiempo de respuesta sea similar si el usuario no existe.
-HASH_FICTICIO = "0" * 32 + "$" + "0" * 64
+
+def admin_usa_password_plano() -> bool:
+    return (
+        not str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip()
+        and bool(str(st.secrets.get("ADMIN_PASSWORD", "")))
+    )
+
+
+def falta_clave_hmac_propia() -> bool:
+    return not str(st.secrets.get("CLAVE_HMAC", "")).strip()
+
 
 @st.cache_resource
 def _registro_intentos():
     return {}
 
+
+def _normalizar_clave_intento(clave: str) -> str:
+    return re.sub(r"\s+", "", str(clave or "").strip().lower())[:80]
+
+
 def segundos_bloqueo(clave: str) -> int:
+    clave = _normalizar_clave_intento(clave)
     ahora = time.time()
     registro = _registro_intentos()
     recientes = [t for t in registro.get(clave, []) if ahora - t < VENTANA_SEG]
@@ -162,11 +447,64 @@ def segundos_bloqueo(clave: str) -> int:
         return int(VENTANA_SEG - (ahora - recientes[0]))
     return 0
 
+
 def registrar_fallo(clave: str):
-    _registro_intentos().setdefault(clave, []).append(time.time())
+    clave = _normalizar_clave_intento(clave)
+    registro = _registro_intentos()
+    recientes = [t for t in registro.get(clave, []) if time.time() - t < VENTANA_SEG]
+    recientes.append(time.time())
+    registro[clave] = recientes[-MAX_INTENTOS:]
+
 
 def limpiar_fallos(clave: str):
-    _registro_intentos().pop(clave, None)
+    _registro_intentos().pop(_normalizar_clave_intento(clave), None)
+
+
+def ruta_storage_segura(path: str) -> str:
+    # Evita path traversal y caracteres raros en rutas de Storage.
+    p = str(path or "").replace("\\", "/").strip()
+    partes = [x for x in p.split("/") if x and x not in (".", "..")]
+    if not partes:
+        raise ValueError("Ruta de archivo invÃ¡lida.")
+    limpio = "/".join(partes)
+    if len(limpio) > 240:
+        raise ValueError("Ruta de archivo demasiado larga.")
+    return limpio
+
+def selector(opciones, clave, label="SecciÃ³n"):
+    # Botones de secciÃ³n. Usa "pills" si la versiÃ³n de Streamlit lo trae; si no, radio horizontal.
+    if hasattr(st, "pills"):
+        v = st.pills(label, opciones, selection_mode="single", default=opciones[0],
+                     key=clave, label_visibility="collapsed")
+    else:
+        v = st.radio(label, opciones, horizontal=True, key=clave, label_visibility="collapsed")
+    ultimo = f"{clave}_ult"
+    if v is None:                      # si se desmarca la opciÃ³n, se conserva la anterior
+        v = st.session_state.get(ultimo, opciones[0])
+    st.session_state[ultimo] = v
+    return v
+
+
+def ui_card(titulo, subtitulo=None, icono="ðŸ“‹"):
+    """Encabezado de secciÃ³n con estilo de tarjeta."""
+    sub = f'<p class="card-sub">{subtitulo}</p>' if subtitulo else ""
+    st.markdown(
+        f'<div class="card-header">'
+        f'<div class="icon">{icono}</div>'
+        f'<div><p class="card-title">{titulo}</p>{sub}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def ui_session_banner(titulo, meta=""):
+    st.markdown(
+        f'<div class="session-banner">'
+        f'<div><strong>{titulo}</strong>'
+        f'{f"<div class=meta>{meta}</div>" if meta else ""}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 def limpiar_sesion():
     for clave in list(st.session_state.keys()):
@@ -393,44 +731,99 @@ logger = logging.getLogger("registro_bases")
 
 def error_supabase(mensaje, error=None):
     ref = uuid.uuid4().hex[:8]
-    logger.error("[%s] %s | %r", ref, mensaje, error)
+    # No registrar cuerpos de error que puedan contener datos personales.
+    detalle = type(error).__name__ if error is not None else ""
+    logger.error("[%s] %s | %s", ref, mensaje, detalle)
     st.error(f"{mensaje} (ref. {ref})")
-    if error and st.session_state.get("es_admin"):
-        st.caption(f"Detalle t\u00e9cnico (solo visible para el administrador): {str(error)[:500]}")
-    st.caption("Si el problema contin\u00faa, comunica la referencia al administrador.")
+    if error is not None and st.session_state.get("es_admin"):
+        st.caption(
+            f"Detalle tÃ©cnico (solo visible para el administrador): "
+            f"{type(error).__name__}: {str(error)[:300]}"
+        )
+    st.caption("Si el problema continÃºa, comunica la referencia al administrador.")
+
 
 def subir_archivo(bucket, path, contenido, content_type):
+    path = ruta_storage_segura(path)
+    if bucket not in (BUCKET_FOTOS, BUCKET_PLANTILLAS):
+        raise ValueError("Bucket no permitido.")
+    if not contenido:
+        raise ValueError("Archivo vacÃ­o.")
+    if len(contenido) > MAX_IMG_BYTES and content_type.startswith("image/"):
+        raise ValueError("La imagen supera el tamaÃ±o mÃ¡ximo permitido.")
+    tipos_ok = {
+        "image/jpeg", "image/jpg", "image/png", "application/json", "text/plain",
+    }
+    ct = (content_type or "application/octet-stream").split(";")[0].strip().lower()
+    if ct not in tipos_ok:
+        raise ValueError("Tipo de archivo no permitido.")
     supabase.storage.from_(bucket).upload(
         path=path, file=contenido,
-        file_options={"content-type": content_type, "upsert": "true"}
+        file_options={"content-type": ct, "upsert": "true"},
     )
     return supabase.storage.from_(bucket).get_public_url(path)
 
+
 MAX_IMG_BYTES = 8 * 1024 * 1024
+
 
 def ext_imagen(archivo) -> str:
     return "png" if getattr(archivo, "type", "") == "image/png" else "jpg"
 
+
 def procesar_foto(archivo, lado_max=900) -> bytes:
-    # Valida que sea una imagen real, corrige la orientacion, reduce el tamano
-    # y la guarda como JPEG nuevo (asi se eliminan metadatos EXIF/GPS).
+    # Valida imagen real, corrige orientaciÃ³n, reduce tamaÃ±o y guarda JPEG nuevo (sin EXIF/GPS).
+    raw = archivo.getvalue() if hasattr(archivo, "getvalue") else archivo
+    if not raw or len(raw) > MAX_IMG_BYTES:
+        raise ValueError("La fotografÃ­a debe pesar menos de 8 MB.")
     try:
-        im = Image.open(io.BytesIO(archivo.getvalue()))
+        im = Image.open(io.BytesIO(raw))
         im.load()
     except Exception:
-        raise ValueError("La fotograf\u00eda no es una imagen v\u00e1lida.")
+        raise ValueError("La fotografÃ­a no es una imagen vÃ¡lida.")
+    # Solo formatos de foto habituales.
+    if (im.format or "").upper() not in ("JPEG", "JPG", "PNG", "WEBP", "BMP", "TIFF", ""):
+        raise ValueError("Formato de imagen no permitido.")
     im = ImageOps.exif_transpose(im).convert("RGB")
     im.thumbnail((lado_max, lado_max))
     salida = io.BytesIO()
     im.save(salida, format="JPEG", quality=88, optimize=True)
     return salida.getvalue()
 
+
+def _url_permitida_descarga(url: str) -> bool:
+    # Solo descargar desde el propio storage de Supabase (evita SSRF).
+    try:
+        from urllib.parse import urlparse
+        host = (urlparse(str(url)).hostname or "").lower()
+        base = (urlparse(str(st.secrets.get("SUPABASE_URL", ""))).hostname or "").lower()
+        if not host or not base:
+            return False
+        return host == base or host.endswith(".supabase.co")
+    except Exception:
+        return False
+
+
 def descargar_imagen(url):
-    r = requests.get(url, timeout=25)
+    if not _url_permitida_descarga(url):
+        raise ValueError("URL de imagen no permitida.")
+    r = requests.get(str(url), timeout=25, allow_redirects=True)
     r.raise_for_status()
+    if len(r.content) > MAX_IMG_BYTES:
+        raise ValueError("Imagen remota demasiado grande.")
     im = Image.open(io.BytesIO(r.content))
     im.load()
     return im.convert("RGBA")
+
+
+def descargar_bytes(url):
+    if not _url_permitida_descarga(url):
+        raise ValueError("URL no permitida.")
+    r = requests.get(str(url), timeout=25, allow_redirects=True)
+    r.raise_for_status()
+    if len(r.content) > 15 * 1024 * 1024:
+        raise ValueError("Archivo remoto demasiado grande.")
+    return r.content
 
 # ---------------------------------------------------------------------
 # PLANTILLAS
@@ -599,16 +992,14 @@ def guardar_edicion_integrante(orig, datos, foto=None, quitar_foto=False):
         borrar_fotos([foto_vieja])
 
 def obtener_credencial(token):
-    token_hash = hash_texto(token)
+    if not token_qr_valido_formato(token):
+        return None
+    token_hash = hash_texto(token.strip())
     filas = (supabase.table("credenciales")
              .select("id,integrante_id,persona_key,estado,plantilla_id,emitida_en")
              .eq("token_hash", token_hash).limit(1).execute().data or [])
     return filas[0] if filas else None
 
-def descargar_bytes(url):
-    r = requests.get(url, timeout=25)
-    r.raise_for_status()
-    return r.content
 
 @st.cache_data(ttl=600, show_spinner=False)
 def bytes_plantilla(path):
@@ -1129,129 +1520,192 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
 # ---------------------------------------------------------------------
 # VERIFICACION PUBLICA DEL QR
 # ---------------------------------------------------------------------
-st.title("\U0001f5f3\ufe0f Registro de Bases y Comandos")
 token_qr = st.query_params.get("verificar")
 if token_qr:
-    st.subheader("Verificaci\u00f3n de credencial")
+    st.markdown(
+        '<div class="login-hero">'
+        '<div class="logo">ðŸ—³ï¸</div>'
+        '<h1>VerificaciÃ³n de credencial</h1>'
+        '<p>Consulta pÃºblica de vigencia</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     try:
-        cred = obtener_credencial(str(token_qr))
+        token_limpio = str(token_qr).strip()
+        if not token_qr_valido_formato(token_limpio):
+            st.error("CÃ³digo no vÃ¡lido o credencial no encontrada.")
+            st.stop()
+        cred = obtener_credencial(token_limpio)
         if not cred:
-            st.error("C\u00f3digo no v\u00e1lido o credencial no encontrada.")
+            st.error("CÃ³digo no vÃ¡lido o credencial no encontrada.")
         elif cred["estado"] != "vigente":
-            st.warning("Esta credencial no est\u00e1 vigente.")
+            st.warning("Esta credencial no estÃ¡ vigente.")
         else:
             fila = (supabase.table("integrantes_base")
                     .select("nombres,apellidos,cargo,base_id,dni,foto_url")
                     .eq("id", cred["integrante_id"]).limit(1).execute().data or [])
             if not fila:
-                st.warning("No se encontr\u00f3 el registro asociado.")
+                st.warning("No se encontrÃ³ el registro asociado.")
             else:
                 persona = fila[0]
                 nombres_bases = [b["nombre_base"] for b in datos_bases_por_dni(persona["dni"])]
                 st.success("Credencial vigente")
-                if persona.get("foto_url"):
-                    try:
-                        st.image(persona["foto_url"], width=220, caption="Fotograf\u00eda registrada")
-                    except Exception:
-                        pass
-                st.write(f"**Integrante:** {nombre_completo(persona)}")
-                st.write(f"**Cargo:** {persona.get('cargo') or 'Sin cargo'}")
-                st.write(f"**Bases:** {', '.join(nombres_bases) if nombres_bases else 'No especificadas'}")
-                st.caption(f"Emitida el {str(cred.get('emitida_en', ''))[:10]}. "
-                           "Por privacidad, esta consulta p\u00fablica no muestra el DNI ni el tel\u00e9fono.")
+                col_foto, col_info = st.columns([1, 2])
+                with col_foto:
+                    if persona.get("foto_url"):
+                        try:
+                            st.image(persona["foto_url"], width=220, caption="FotografÃ­a registrada")
+                        except Exception:
+                            pass
+                with col_info:
+                    st.markdown(f"**Integrante**  \n{nombre_completo(persona)}")
+                    st.markdown(f"**Cargo**  \n{persona.get('cargo') or 'Sin cargo'}")
+                    st.markdown(f"**Bases**  \n{', '.join(nombres_bases) if nombres_bases else 'No especificadas'}")
+                    st.caption(
+                        f"Emitida el {str(cred.get('emitida_en', ''))[:10]}. "
+                        "Por privacidad, esta consulta pÃºblica no muestra el DNI ni el telÃ©fono."
+                    )
     except Exception as e:
         error_supabase("No se pudo verificar la credencial.", e)
     st.stop()
-
-st.caption("Gesti\u00f3n de bases, integrantes, reuniones, asistencia y credenciales verificables.")
 
 # ---------------------------------------------------------------------
 # ACCESO
 # ---------------------------------------------------------------------
 if st.session_state.base_id is None and not st.session_state.admin_autenticado:
-    st.subheader("Acceso al sistema")
-    modo = st.radio("Tipo de acceso", ["Responsable de base", "Administrador"], horizontal=True)
-    if modo == "Responsable de base":
-        with st.form("login_base"):
-            usuario_login = st.text_input("Usuario").strip()
-            password_login = st.text_input("Contrase\u00f1a", type="password")
-            entrar = st.form_submit_button("Ingresar", use_container_width=True)
-        clave_rl = "base:" + usuario_login.lower()
-        espera = segundos_bloqueo(clave_rl) if entrar else 0
-        if entrar and espera:
-            st.error(f"Demasiados intentos fallidos. Intenta de nuevo en {espera // 60 + 1} minuto(s).")
-        elif entrar:
-            try:
-                r = (supabase.table("bases_campana")
-                     .select("id,nombre_base,provincia,distrito,usuario,password_hash")
-                     .eq("usuario", usuario_login).limit(1).execute())
-                hash_guardado = r.data[0].get("password_hash", "") if r.data else HASH_FICTICIO
-                if verificar_password(password_login, hash_guardado) and r.data:
-                    limpiar_fallos(clave_rl)
-                    b = r.data[0]
-                    st.session_state.base_id = b["id"]
-                    st.session_state.base_nombre = b["nombre_base"]
-                    st.session_state.base_provincia = b.get("provincia") or ""
-                    st.session_state.base_distrito = b.get("distrito") or ""
+    st.markdown(
+        '<div class="login-hero">'
+        '<div class="logo">ðŸ—³ï¸</div>'
+        '<h1>Registro de Bases y Comandos</h1>'
+        '<p>GestiÃ³n de bases, integrantes, reuniones y credenciales verificables</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    col_l, col_c, col_r = st.columns([1, 1.4, 1])
+    with col_c:
+        modo = st.radio(
+            "Tipo de acceso",
+            ["Responsable de base", "Administrador"],
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        if modo == "Responsable de base":
+            with st.form("login_base"):
+                st.markdown("**Acceso de responsable de base**")
+                usuario_login = st.text_input(
+                    "Usuario", placeholder="Usuario de la base", max_chars=MAX_USUARIO_LEN
+                ).strip()
+                password_login = st.text_input(
+                    "ContraseÃ±a", type="password", placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢", max_chars=MAX_PASSWORD_LEN
+                )
+                entrar = st.form_submit_button("Ingresar", use_container_width=True, type="primary")
+            clave_rl = "base:" + usuario_login.lower()
+            espera = segundos_bloqueo(clave_rl) if entrar else 0
+            if entrar and espera:
+                st.error(f"Demasiados intentos fallidos. Intenta de nuevo en {espera // 60 + 1} minuto(s).")
+            elif entrar:
+                try:
+                    # Siempre se verifica un hash (real o ficticio) para igualar tiempos de respuesta.
+                    r = (supabase.table("bases_campana")
+                         .select("id,nombre_base,provincia,distrito,usuario,password_hash")
+                         .eq("usuario", usuario_login).limit(1).execute())
+                    hash_guardado = r.data[0].get("password_hash", "") if r.data else HASH_FICTICIO
+                    ok = verificar_password(password_login, hash_guardado) and bool(r.data)
+                    if ok:
+                        limpiar_fallos(clave_rl)
+                        limpiar_sesion()
+                        b = r.data[0]
+                        st.session_state.base_id = b["id"]
+                        st.session_state.base_nombre = b["nombre_base"]
+                        st.session_state.base_provincia = b.get("provincia") or ""
+                        st.session_state.base_distrito = b.get("distrito") or ""
+                        st.rerun()
+                    else:
+                        registrar_fallo(clave_rl)
+                        st.error("Usuario o contraseÃ±a incorrectos.")
+                except Exception as e:
+                    error_supabase("No se pudo comprobar el acceso.", e)
+        else:
+            with st.form("login_admin"):
+                st.markdown("**Acceso de administrador**")
+                u = st.text_input(
+                    "Usuario administrador", placeholder="Usuario", max_chars=MAX_USUARIO_LEN
+                )
+                p = st.text_input(
+                    "ContraseÃ±a de administrador", type="password",
+                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢", max_chars=MAX_PASSWORD_LEN,
+                )
+                entrar_admin = st.form_submit_button(
+                    "Ingresar como administrador", use_container_width=True, type="primary"
+                )
+            if entrar_admin:
+                espera = segundos_bloqueo("admin")
+                if espera:
+                    st.error(f"Demasiados intentos fallidos. Intenta de nuevo en {espera // 60 + 1} minuto(s).")
+                elif admin_valido(u, p):
+                    limpiar_fallos("admin")
+                    limpiar_sesion()
+                    st.session_state.admin_autenticado = True
+                    st.session_state.es_admin = True
                     st.rerun()
                 else:
-                    registrar_fallo(clave_rl)
-                    st.error("Usuario o contrase\u00f1a incorrectos.")
-            except Exception as e:
-                error_supabase("No se pudo comprobar el acceso.", e)
-    else:
-        with st.form("login_admin"):
-            u = st.text_input("Usuario administrador")
-            p = st.text_input("Contrase\u00f1a de administrador", type="password")
-            entrar_admin = st.form_submit_button("Ingresar como administrador", use_container_width=True)
-        if entrar_admin:
-            espera = segundos_bloqueo("admin")
-            if espera:
-                st.error(f"Demasiados intentos fallidos. Intenta de nuevo en {espera // 60 + 1} minuto(s).")
-            elif admin_valido(u, p):
-                limpiar_fallos("admin")
-                st.session_state.admin_autenticado = True
-                st.session_state.es_admin = True
-                st.rerun()
-            else:
-                registrar_fallo("admin")
-                st.error("Credenciales incorrectas o Secrets de administrador no configurados.")
+                    registrar_fallo("admin")
+                    st.error("Credenciales incorrectas o Secrets de administrador no configurados.")
+    st.stop()
 
 # ---------------------------------------------------------------------
 # PANEL ADMINISTRADOR
 # ---------------------------------------------------------------------
 if st.session_state.admin_autenticado and st.session_state.es_admin:
-    st.success("Sesi\u00f3n de administrador")
-    if not str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip():
-        st.warning("Est\u00e1s usando ADMIN_PASSWORD en texto plano. Conviene reemplazarlo por ADMIN_PASSWORD_HASH en Secrets.")
-    tabs = st.tabs(["Resumen", "Crear base", "Bases e integrantes", "Administrar bases",
-                    "Reuniones y asistencia", "Exportar",
-                    "Credenciales QR", "Credenciales en lote", "Credenciales generadas", "Plantillas"])
+    with st.sidebar:
+        st.markdown("### ðŸ—³ï¸ AdministraciÃ³n")
+        st.caption("Panel de control")
+        st.divider()
+        panel = st.radio(
+            "MÃ³dulo",
+            ["Bases", "Reuniones", "Credenciales", "Exportar", "Plantillas"],
+            key="admin_panel_side",
+            label_visibility="collapsed",
+        )
+        sub = ""
+        if panel == "Bases":
+            st.caption("Bases")
+            sub = st.radio(
+                "SubmÃ³dulo bases",
+                ["Integrantes", "Crear base", "Administrar"],
+                key="admin_sub_bases_side",
+                label_visibility="collapsed",
+            )
+        elif panel == "Credenciales":
+            st.caption("Credenciales")
+            sub = st.radio(
+                "SubmÃ³dulo credenciales",
+                ["Una persona", "Varias personas", "Generadas"],
+                key="admin_sub_cred_side",
+                label_visibility="collapsed",
+            )
+        st.divider()
+        if st.button("Cerrar sesiÃ³n", use_container_width=True, key="admin_logout_side"):
+            limpiar_sesion()
+            st.rerun()
 
-    with tabs[0]:
-        try:
-            bases = cargar_bases()
-            integrantes = cargar_integrantes()
-            c1, c2 = st.columns(2)
-            c1.metric("Bases registradas", len(bases))
-            c2.metric("Registros de integrantes", len(integrantes))
-            if bases:
-                df = pd.DataFrame([{
-                    "Base": b.get("nombre_base", ""),
-                    "Provincia": b.get("provincia") or "Sin asignar",
-                    "Distrito": b.get("distrito") or "Sin asignar",
-                    "Usuario": b.get("usuario", "")
-                } for b in bases])
-                st.dataframe(df, use_container_width=True, hide_index=True)
-                st.dataframe(df.groupby("Provincia").size().reset_index(name="Cantidad"),
-                             use_container_width=True, hide_index=True)
-            else:
-                st.info("Todav\u00eda no hay bases registradas.")
-        except Exception as e:
-            error_supabase("No se pudo cargar el resumen.", e)
+    ui_session_banner(
+        "SesiÃ³n de administrador",
+        "GestiÃ³n global de bases, credenciales y plantillas",
+    )
+    if admin_usa_password_plano():
+        st.warning(
+            "EstÃ¡s usando ADMIN_PASSWORD en texto plano. "
+            "ReemplÃ¡zalo por ADMIN_PASSWORD_HASH en Secrets (mÃ¡s seguro)."
+        )
+    if falta_clave_hmac_propia():
+        st.info(
+            "No hay CLAVE_HMAC en Secrets: se usa una derivada de SUPABASE_KEY. "
+            "Define CLAVE_HMAC (texto largo y aleatorio) para independizar tokens y rotaciones."
+        )
 
-    with tabs[1]:
-        st.subheader("Crear una base o comando")
+    if panel == "Bases" and sub == "Crear base":
+        ui_card("Crear una base o comando", "Alta de nueva unidad organizativa", "âž•")
         with st.form("crear_base"):
             nombre = st.text_input("Nombre de la base o comando")
             provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS)
@@ -1289,8 +1743,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 except Exception as e:
                     error_supabase("No se pudo crear la base.", e)
 
-    with tabs[2]:
-        st.subheader("Bases e integrantes")
+    if panel == "Bases" and sub == "Integrantes":
+        ui_card("Bases e integrantes", "Consulta y descarga de listas por base", "ðŸ‘¥")
         try:
             bases = cargar_bases()
             if bases:
@@ -1312,9 +1766,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudieron consultar las bases e integrantes.", e)
 
-    with tabs[3]:
-        st.subheader("Administrar bases")
-        st.caption("Corrige datos, restablece contrase\u00f1as y elimina bases o integrantes.")
+    if panel == "Bases" and sub == "Administrar":
+        ui_card("Administrar bases", "Corregir datos, restablecer contraseÃ±as y eliminar bases o integrantes", "âš™ï¸")
         try:
             msg_adm = st.session_state.pop("mostrar_msg_admin", None)
             if msg_adm:
@@ -1466,8 +1919,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudo completar la acci\u00f3n de administraci\u00f3n.", e)
 
-    with tabs[4]:
-        st.subheader("Reuniones y asistencia")
+    if panel == "Reuniones":
+        ui_card("Reuniones y asistencia", "Crear reuniones y registrar presencia por base", "ðŸ“…")
         with st.form("crear_reunion"):
             nr = st.text_input("Nombre de la reuni\u00f3n")
             fr = st.date_input("Fecha de la reuni\u00f3n", value=date.today())
@@ -1521,7 +1974,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 else:
                     st.info("Esta base no tiene integrantes.")
                 st.divider()
-                st.subheader("Historial de la reuni\u00f3n")
+                ui_card("Historial de la reuniÃ³n", "Presentes registrados en la reuniÃ³n seleccionada", "âœ…")
                 historial = (supabase.table("asistencias")
                              .select("integrante_id,presente,integrantes_base(nombres,apellidos,dni,cargo)")
                              .eq("reunion_id", rsel["id"]).eq("presente", True)
@@ -1549,8 +2002,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudo cargar el m\u00f3dulo de asistencia.", e)
 
-    with tabs[5]:
-        st.subheader("Exportar datos")
+    if panel == "Exportar":
+        ui_card("Exportar datos", "Reportes Excel y ZIP por provincia o por base", "ðŸ“¤")
         try:
             bases = cargar_bases()
             integrantes = cargar_integrantes()
@@ -1617,8 +2070,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudieron preparar los archivos.", e)
 
-    with tabs[6]:
-        st.subheader("\U0001faaa Generar credenciales QR")
+    if panel == "Credenciales" and sub == "Una persona":
+        ui_card("Generar credencial", "EmisiÃ³n individual con cÃ³digo QR verificable", "ðŸªª")
         if not APP_PUBLIC_URL:
             st.warning("Configura APP_PUBLIC_URL en Secrets con la URL p\u00fablica de tu aplicaci\u00f3n para que los QR puedan abrir la verificaci\u00f3n.")
         try:
@@ -1740,9 +2193,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudo preparar la credencial.", e)
 
-    with tabs[7]:
-        st.subheader("\U0001faaa Credenciales en lote")
-        st.caption("Genera varias credenciales a la vez y desc\u00e1rgalas en ZIP o en PDF listo para imprimir.")
+    if panel == "Credenciales" and sub == "Varias personas":
+        ui_card(
+            "Credenciales de varias personas",
+            "GeneraciÃ³n masiva en ZIP o PDF listo para imprimir",
+            "ðŸªª",
+        )
         f_zip = "ZIP con im\u00e1genes PNG"
         f_pdf = "PDF (una credencial por p\u00e1gina)"
         f_a4 = "PDF A4 para imprimir (8 por hoja)"
@@ -1797,6 +2253,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     if not cola:
                         st.info("No hay personas para esta opci\u00f3n con este filtro.")
                     else:
+                        et_personas = {f'{nombre_completo(p)} (DNI {p["dni"]})': p for p in cola}
+                        elegidas = st.multiselect(
+                            "Elegir personas (opcional; si no eliges ninguna, se usan todas las de la lista)",
+                            list(et_personas.keys()), key=f"lote_personas_{id_base}_{modo}")
+                        if elegidas:
+                            cola = [et_personas[e] for e in elegidas if e in et_personas] or cola
                         tam = st.selectbox("Credenciales por tanda", [25, 50, 100], index=1, key="lote_tam")
                         n_tandas = -(-len(cola) // tam)
                         if modo == M_FALTAN or n_tandas == 1:
@@ -1872,11 +2334,14 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         if archivos.get("sin_pdf"):
                             st.caption("Los PDF requieren instalar reportlab (agr\u00e9galo a requirements.txt).")
             except Exception as e:
-                error_supabase("No se pudo completar la generaci\u00f3n en lote.", e)
+                error_supabase("No se pudo completar la generaci\u00f3n de varias credenciales.", e)
 
-    with tabs[8]:
-        st.subheader("\U0001f4cb Credenciales generadas")
-        st.caption("Todas las credenciales emitidas. Marca las que quieras eliminar; las que no marques se conservan.")
+    if panel == "Credenciales" and sub == "Generadas":
+        ui_card(
+            "Credenciales generadas",
+            "Listado completo. Marca las que quieras eliminar; las no marcadas se conservan",
+            "ðŸ“‹",
+        )
         try:
             msg_cred = st.session_state.pop("mostrar_msg_cred", None)
             if msg_cred:
@@ -1951,9 +2416,16 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudo cargar la lista de credenciales.", e)
 
-    with tabs[9]:
-        st.subheader("\U0001f3a8 Administrar plantillas")
-        st.info("Puedes subir una imagen ya dise\u00f1ada o usar la plantilla predeterminada. La imagen se utiliza como fondo; el sistema a\u00f1ade los datos y el QR.")
+    if panel == "Plantillas":
+        ui_card(
+            "Administrar plantillas",
+            "Sube una imagen de fondo; el sistema aÃ±ade datos, foto y QR",
+            "ðŸŽ¨",
+        )
+        st.info(
+            "Puedes subir una imagen ya diseÃ±ada o usar la plantilla predeterminada. "
+            "La imagen se utiliza como fondo; el sistema aÃ±ade los datos y el QR."
+        )
         with st.form("form_plantilla", clear_on_submit=True):
             nombre_plantilla = st.text_input("Nombre de la plantilla")
             frontal = st.file_uploader("Imagen frontal (PNG o JPG)", type=["png", "jpg", "jpeg"])
@@ -2005,17 +2477,25 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudieron cargar las plantillas.", e)
 
-    if st.button("Cerrar sesi\u00f3n de administrador"):
-        limpiar_sesion()
-        st.rerun()
-
 # ---------------------------------------------------------------------
 # PANEL RESPONSABLE DE BASE
 # ---------------------------------------------------------------------
 if st.session_state.base_id is not None:
     base_id = st.session_state.base_id
-    st.success(f'Sesi\u00f3n: {st.session_state.base_nombre} \u00b7 {st.session_state.base_provincia} / {st.session_state.base_distrito}')
-    st.subheader("Integrantes de tu base")
+    with st.sidebar:
+        st.markdown("### ðŸ—³ï¸ Mi base")
+        st.caption(st.session_state.base_nombre)
+        st.caption(f"{st.session_state.base_provincia} / {st.session_state.base_distrito}")
+        st.divider()
+        if st.button("Cerrar sesiÃ³n", use_container_width=True, key="base_logout_side"):
+            limpiar_sesion()
+            st.rerun()
+
+    ui_session_banner(
+        st.session_state.base_nombre,
+        f"{st.session_state.base_provincia} / {st.session_state.base_distrito}",
+    )
+    ui_card("Integrantes de tu base", "Registro y listado de miembros", "ðŸ‘¥")
     with st.expander("Agregar integrante", expanded=False):
         with st.form("form_integrante", clear_on_submit=True):
             nombres = st.text_input("Nombres")
@@ -2081,16 +2561,16 @@ if st.session_state.base_id is not None:
     except Exception as e:
         error_supabase("No se pudo cargar la lista.", e)
 
-    if st.button("Cerrar sesi\u00f3n de base"):
-        limpiar_sesion()
-        st.rerun()
-
 st.divider()
 with st.expander("Aviso de privacidad"):
-    st.write(
-        "Los datos de identificaci\u00f3n, fotograf\u00edas y afiliaci\u00f3n o participaci\u00f3n organizativa "
-        "son datos personales que requieren protecci\u00f3n reforzada. Informa a cada persona "
-        "sobre la finalidad, qui\u00e9n accede, cu\u00e1nto tiempo se conservar\u00e1n y c\u00f3mo solicitar "
-        "correcci\u00f3n o eliminaci\u00f3n. No registres a nadie sin autorizaci\u00f3n documentada. "
-        "La consulta p\u00fablica del QR muestra \u00fanicamente nombre, cargo, bases y fotograf\u00eda, y nunca el DNI ni el tel\u00e9fono."
+    st.markdown(
+        '<div class="privacy-box">'
+        "Los datos de identificaciÃ³n, fotografÃ­as y afiliaciÃ³n o participaciÃ³n organizativa "
+        "son datos personales que requieren protecciÃ³n reforzada. Informa a cada persona "
+        "sobre la finalidad, quiÃ©n accede, cuÃ¡nto tiempo se conservarÃ¡n y cÃ³mo solicitar "
+        "correcciÃ³n o eliminaciÃ³n. No registres a nadie sin autorizaciÃ³n documentada. "
+        "La consulta pÃºblica del QR muestra Ãºnicamente nombre, cargo, bases y fotografÃ­a, "
+        "y nunca el DNI ni el telÃ©fono."
+        "</div>",
+        unsafe_allow_html=True,
     )
