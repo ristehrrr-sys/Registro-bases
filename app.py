@@ -146,8 +146,20 @@ DISTRITOS_PUNO = {
     "Yunguyo": ["Anapia", "Copani", "Cuturapi", "Ollaraya", "Tinicachi", "Unicachi", "Yunguyo"],
 }
 PROVINCIAS = sorted(DISTRITOS_PUNO.keys())
-CARGOS = ["Militante", "Coordinador de base", "Secretario de organizaci\u00f3n",
-          "Secretario de econom\u00eda", "Secretario de actas", "Fiscal", "Otro"]
+CARGOS = [
+    "SECRETARIO(a) GENERAL",
+    "SECRETARIO(a) DE ORGANIZACIÓN Y MOVILIZACION",
+    "SECRETARIO(a) DE PRENSA Y PROPAGANDA",
+    "SECRETARIO(a) DE LA MUJER",
+    "SECRETARIO(a) DE JUVENTUDES",
+    "SECRETARIO(a) DE ECONOMIA",
+    "SECRETARIO(a) DE SERIGRAFIADO",
+    "SECRETARIO(a) DE PERIFONEO Y VOLANTEO",
+    "SECRETARIO(a) DE ASESORIA ELECTORAL Y DEFENSA DEL VOTO",
+    "SECRETARIO(a) DE INTERVENCION GRAFICA TERRITORIAL",
+    "MILITANTE",
+    "Otro"
+]
  
 # ---------------------------------------------------------------------
 # SEGURIDAD Y SESION
@@ -1349,8 +1361,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             "Integrantes": "👤  Consultar integrantes",
             "Crear base": "➕  Crear nueva base",
             "Administrar": "⚙️  Administrar registros",
-            "Una persona": "🪪  Credencial individual",
-            "Varias personas": "👥  Emisión por lote",
+            "Una persona": "🪪 Emisión de Credencial",
+            "Varias personas": "👥  Emisión de Credenciales",
             "Generadas": "📋  Credenciales emitidas",
         }
         sub = st.selectbox(
@@ -1366,6 +1378,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         with st.form("crear_base"):
             nombre = st.text_input("Nombre de la base o comando")
             provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS)
+            Dirección de la base/comando = st.tex_imput("Dirección de la base o comando")
             ds = sorted(DISTRITOS_PUNO.get(provincia, []))
             distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds,
                                     disabled=not ds)
