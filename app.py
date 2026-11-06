@@ -1361,8 +1361,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             "Integrantes": "👤  Consultar integrantes",
             "Crear base": "➕  Crear nueva base",
             "Administrar": "⚙️  Administrar registros",
-            "Una persona": "🪪 Emisión de Credencial",
-            "Varias personas": "👥  Emisión de Credenciales",
+            "Una persona": "🪪  Credencial individual",
+            "Varias personas": "👥  Emisión por lote",
             "Generadas": "📋  Credenciales emitidas",
         }
         sub = st.selectbox(
@@ -1378,10 +1378,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         with st.form("crear_base"):
             nombre = st.text_input("Nombre de la base o comando")
             provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS)
-            direccion = st.text_input("Dirección de la base o comando")
             ds = sorted(DISTRITOS_PUNO.get(provincia, []))
             distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds,
                                     disabled=not ds)
+            direccion = st.text_input("Dirección de la base o comando")
             usuario = st.text_input("Crear usuario de la base").strip()
             password = st.text_input("Contrase\u00f1a inicial (m\u00ednimo 10 caracteres, con letras y n\u00fameros)", type="password")
             confirmar = st.text_input("Confirmar contrase\u00f1a", type="password")
@@ -1406,7 +1406,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     else:
                         supabase.table("bases_campana").insert({
                             "nombre_base": nombre.strip(), "provincia": provincia,
-                            "distrito": distrito, "direccion":direccion.strip(), "usuario": usuario,
+                            "distrito": distrito, "direccion": direccion.strip(), "usuario": usuario,
                             "password_hash": crear_hash(password)
                         }).execute()
                         st.success("Base creada correctamente.")
@@ -2152,9 +2152,9 @@ if st.session_state.base_id is not None:
             apellidos = st.text_input("Apellidos")
             dni = st.text_input("DNI (8 d\u00edgitos)")
             celular = st.text_input("Celular (9 a 15 d\u00edgitos)")
-            foto = st.file_uploader("Fotograf\u00eda del integrante (opcional)", type=["jpg", "jpeg", "png"])
             cargo_sel = st.selectbox("Cargo o condici\u00f3n", CARGOS)
             cargo_otro = st.text_input("Especifica el cargo") if cargo_sel == "Otro" else ""
+            foto = st.file_uploader("Fotograf\u00eda del integrante (opcional)", type=["jpg", "jpeg", "png"])
             consentimiento = st.checkbox("Confirmo que la persona fue informada y autoriz\u00f3 el registro de sus datos y fotograf\u00eda, "
                 "y que su nombre, cargo y fotograf\u00eda se mostrar\u00e1n al escanear su credencial.")
             guardar = st.form_submit_button("Guardar integrante")
