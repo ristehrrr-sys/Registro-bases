@@ -1377,10 +1377,9 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         st.subheader("Crear una base o comando")
         with st.form("crear_base"):
             nombre = st.text_input("Nombre de la base o comando")
-            provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS)
-            ds = sorted(DISTRITOS_PUNO.get(provincia, []))
-            distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds,
-                                    disabled=not ds)
+            provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS, key="prov_crear")
+            ds = sorted(DISTRITOS_PUNO.get(provincia, [])) 
+            distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds, key=f"dist_crear_{provincia}")
             direccion = st.text_input("Dirección de la base o comando")
             usuario = st.text_input("Crear usuario de la base").strip()
             password = st.text_input("Contrase\u00f1a inicial (m\u00ednimo 10 caracteres, con letras y n\u00fameros)", type="password")
