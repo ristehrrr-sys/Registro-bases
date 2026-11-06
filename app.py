@@ -274,12 +274,13 @@ def limpiar_sesion():
     st.session_state.base_nombre = ""
     st.session_state.base_provincia = ""
     st.session_state.base_distrito = ""
+    st.session_state.base_direccion = ""
     st.session_state.admin_autenticado = False
     st.session_state.es_admin = False
  
 for k, v in {
     "base_id": None, "base_nombre": "", "base_provincia": "",
-    "base_distrito": "", "admin_autenticado": False,
+    "base_distrito": "", "base_direccion": "", "admin_autenticado": False,
     "es_admin": False
 }.items():
     if k not in st.session_state:
@@ -300,7 +301,7 @@ def traer_todo(construir, tam=1000):
  
 def cargar_bases():
     return traer_todo(lambda: supabase.table("bases_campana")
-                      .select("id,nombre_base,provincia,distrito,usuario,fecha_registro")
+                      .select("id,nombre_base,provincia,distrito,direccion,usuario,fecha_registro")
                       .order("nombre_base").order("id"))
  
 def cargar_integrantes(base_id=None):
@@ -339,7 +340,11 @@ def nombre_archivo_seguro(texto):
     return re.sub(r"[^A-Za-z0-9_-]+", "_", t).strip("_")[:60] or "sin_nombre"
  
 def ubicacion_texto(base):
-    return " / ".join(x for x in (base.get("provincia"), base.get("distrito")) if x)
+    texto = " / ".join(x for x in (base.get("provincia"), base.get("distrito")) if x)
+    direccion = str(base.get("direccion") or "").strip()
+    if direccion:
+        texto = f"{texto} \u00b7 Direcci\u00f3n: {direccion}" if texto else f"Direcci\u00f3n: {direccion}"
+    return texto
  
 def excel_multihoja(hojas, titulo=None):
     # hojas: {nombre: DataFrame}. Encabezado con estilo, filtros, panel fijo y columnas ajustadas.
@@ -380,7 +385,7 @@ def excel_multihoja(hojas, titulo=None):
 def excel_bytes(df, hoja="Registros", titulo=None):
     return excel_multihoja({hoja: df}, titulo)
  
-COLUMNAS_DETALLE = ["N.\u00ba", "Base", "Provincia", "Distrito", "Apellidos", "Nombres",
+COLUMNAS_DETALLE = ["N.\u00ba", "Base", "Provincia", "Distrito", "Direcci\u00f3n de la base", "Apellidos", "Nombres",
                     "DNI", "Celular", "Cargo / condici\u00f3n", "Fecha de registro"]
  
 def dataframe_detallado(filas, mapa_bases):
@@ -393,7 +398,8 @@ def dataframe_detallado(filas, mapa_bases):
         b = mapa_bases.get(f.get("base_id"), {})
         salida.append({
             "N.\u00ba": i, "Base": b.get("nombre_base", ""), "Provincia": b.get("provincia") or "",
-            "Distrito": b.get("distrito") or "", "Apellidos": f.get("apellidos", ""),
+            "Distrito": b.get("distrito") or "", "Direcci\u00f3n de la base": b.get("direccion") or "",
+            "Apellidos": f.get("apellidos", ""),
             "Nombres": f.get("nombres", ""), "DNI": f.get("dni", ""),
             "Celular": f.get("celular", ""), "Cargo / condici\u00f3n": f.get("cargo") or "",
             "Fecha de registro": str(f.get("fecha_registro", ""))[:10],
@@ -1280,7 +1286,7 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
         elif entrar:
             try:
                 r = (supabase.table("bases_campana")
-                     .select("id,nombre_base,provincia,distrito,usuario,password_hash")
+                     .select("id,nombre_base,provincia,distrito,direccion,usuario,password_hash")
                      .eq("usuario", usuario_login).limit(1).execute())
                 hash_guardado = r.data[0].get("password_hash", "") if r.data else HASH_FICTICIO
                 if verificar_password(password_login, hash_guardado) and r.data:
@@ -1290,6 +1296,7 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
                     st.session_state.base_nombre = b["nombre_base"]
                     st.session_state.base_provincia = b.get("provincia") or ""
                     st.session_state.base_distrito = b.get("distrito") or ""
+                    st.session_state.base_direccion = b.get("direccion") or ""
                     st.rerun()
                 else:
                     registrar_fallo(clave_rl)
@@ -1444,6 +1451,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 label = st.selectbox("Seleccionar base", list(mapa.keys()))
                 bsel = mapa[label]
                 miembros = cargar_integrantes(bsel["id"])
+                st.write(f'**Direcci\u00f3n de la base:** {bsel.get("direccion") or "Sin direcci\u00f3n registrada"}')
                 st.write(f'**Integrantes:** {len(miembros)}')
                 buscar = st.text_input("Buscar por nombre, apellido o DNI", key="buscar_admin")
                 filtrados = [f for f in miembros if buscar.lower().strip() in
@@ -1484,10 +1492,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 dops = ["Seleccionar distrito"] + dss
                 ds = st.selectbox("Distrito", dops, key=f"admin_ds_{bid}_{pv}", disabled=not dss,
                                   index=dops.index(bad["distrito"]) if bad.get("distrito") in dss else 0)
+                di = st.text_input("Direcci\u00f3n de la base o comando", value=bad.get("direccion") or "",
+                                   key=f"admin_di_{bid}")
                 us = st.text_input("Usuario de la base", value=bad["usuario"], key=f"admin_us_{bid}").strip()
                 if st.button("Guardar datos de la base", key=f"admin_gb_{bid}"):
-                    if not nb.strip() or pv not in DISTRITOS_PUNO or ds not in dss:
-                        st.warning("Completa el nombre, la provincia y el distrito.")
+                    if not nb.strip() or pv not in DISTRITOS_PUNO or ds not in dss or not di.strip():
+                        st.warning("Completa el nombre, la provincia, el distrito y la direcci\u00f3n.")
                     elif not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", us):
                         st.warning("El usuario debe tener de 3 a 40 caracteres v\u00e1lidos.")
                     elif (supabase.table("bases_campana").select("id").eq("usuario", us)
@@ -1495,7 +1505,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.error("Ese usuario ya est\u00e1 ocupado por otra base.")
                     else:
                         supabase.table("bases_campana").update({
-                            "nombre_base": nb.strip(), "provincia": pv, "distrito": ds, "usuario": us
+                            "nombre_base": nb.strip(), "provincia": pv, "distrito": ds,
+                            "direccion": di.strip(), "usuario": us
                         }).eq("id", bid).execute()
                         st.session_state["mostrar_msg_admin"] = "Datos de la base actualizados."
                         st.rerun()
@@ -1714,6 +1725,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     "Base": b.get("nombre_base", ""),
                     "Provincia": b.get("provincia") or "",
                     "Distrito": b.get("distrito") or "",
+                    "Direcci\u00f3n": b.get("direccion") or "",
                     "Usuario": b.get("usuario", ""),
                     "Integrantes": cuenta.get(b["id"], 0),
                     "Fecha de creaci\u00f3n": str(b.get("fecha_registro", ""))[:10],
@@ -2227,7 +2239,8 @@ if st.session_state.base_id is not None:
             st.dataframe(dataframe_integrantes(filas), use_container_width=True, hide_index=True)
             botones_lista({"id": base_id, "nombre_base": st.session_state.base_nombre,
                            "provincia": st.session_state.base_provincia,
-                           "distrito": st.session_state.base_distrito}, filas, "mi_base")
+                           "distrito": st.session_state.base_distrito,
+                           "direccion": st.session_state.get("base_direccion", "")}, filas, "mi_base")
         else:
             st.info("Todav\u00eda no hay integrantes registrados.")
     except Exception as e:
@@ -2245,5 +2258,4 @@ with st.expander("Aviso de privacidad"):
         "sobre la finalidad, qui\u00e9n accede, cu\u00e1nto tiempo se conservar\u00e1n y c\u00f3mo solicitar "
         "correcci\u00f3n o eliminaci\u00f3n. No registres a nadie sin autorizaci\u00f3n documentada. "
         "La consulta p\u00fablica del QR muestra \u00fanicamente nombre, cargo, bases y fotograf\u00eda, y nunca el DNI ni el tel\u00e9fono."
-    )
- 
+    ) 
