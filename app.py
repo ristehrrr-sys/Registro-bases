@@ -92,7 +92,7 @@ hr{margin:1.1rem 0!important;opacity:.3}
 [data-baseweb="input"],[data-baseweb="textarea"],[data-baseweb="select"]>div{border-radius:8px!important}
 [data-testid="stImage"] img{border-radius:10px}
 @media (max-width:640px){.block-container{padding-left:.8rem!important;padding-right:.8rem!important}}
-
+ 
 /* Navegación desplegable moderna del panel administrativo */
 .admin-nav-heading{margin:10px 0 14px;padding:18px 20px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(125deg,rgba(31,136,61,.13),var(--card));}
 .admin-nav-kicker{font-size:.68rem;font-weight:800;letter-spacing:.14em;color:#279653;margin-bottom:5px;}
@@ -102,7 +102,7 @@ hr{margin:1.1rem 0!important;opacity:.3}
 [data-testid="stSelectbox"] [data-baseweb="select"]>div{min-height:48px!important;border:1px solid var(--line)!important;border-radius:11px!important;background:var(--card)!important;box-shadow:0 2px 8px rgba(0,0,0,.035)!important;}
 [data-testid="stSelectbox"] label{font-weight:700!important;font-size:.84rem!important;}
 @media(max-width:640px){.admin-nav-heading{padding:15px 16px}.admin-nav-title{font-size:1.1rem}}
-
+ 
 </style>
 """, unsafe_allow_html=True)
  
@@ -1330,7 +1330,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
       <div class="admin-nav-caption">Selecciona un módulo para gestionar el registro.</div>
     </div>
     """, unsafe_allow_html=True)
-
+ 
     menu_opciones = ["Bases", "Reuniones", "Credenciales", "Exportar", "Plantillas"]
     if st.session_state.get("admin_menu_actual") not in menu_opciones:
         st.session_state.admin_menu_actual = "Bases"
@@ -1346,7 +1346,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             "Plantillas": "🎨  Plantillas de credenciales",
         }.get(x, x),
     )
-
+ 
     sub = ""
     sub_opciones = {
         "Bases": ["Integrantes", "Crear base", "Administrar"],
@@ -1375,20 +1375,37 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
  
     if panel == "Bases" and sub == "Crear base":
         st.subheader("Crear una base o comando")
-        with st.form("crear_base"):
-            nombre = st.text_input("Nombre de la base o comando")
-            provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS, key="prov_crear")
-            ds = sorted(DISTRITOS_PUNO.get(provincia, [])) 
-            distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds, key=f"dist_crear_{provincia}")
-            direccion = st.text_input("Dirección de la base o comando")
-            usuario = st.text_input("Crear usuario de la base").strip()
-            password = st.text_input("Contrase\u00f1a inicial (m\u00ednimo 10 caracteres, con letras y n\u00fameros)", type="password")
-            confirmar = st.text_input("Confirmar contrase\u00f1a", type="password")
-            acepta = st.checkbox("Confirmo que estoy autorizado para crear esta cuenta.")
-            crear = st.form_submit_button("Crear base")
+        # Provincia y Distrito van FUERA de st.form: dentro de un formulario Streamlit no
+        # vuelve a ejecutar la app al cambiar la provincia, y el distrito se quedaba sin opciones.
+        n_cb = st.session_state.get("admin_crear_base_n", 0)
+        msg_cb = st.session_state.pop("mostrar_msg_crear_base", None)
+        if msg_cb:
+            st.success(msg_cb)
+        with st.container(border=True):
+            nombre = st.text_input("Nombre de la base o comando", key=f"admin_cb_nombre_{n_cb}")
+            provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS,
+                                     key=f"admin_cb_prov_{n_cb}")
+            ds = sorted(DISTRITOS_PUNO.get(provincia, []))
+            # La clave incluye la provincia: al cambiarla, el distrito se reinicia con sus opciones.
+            distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds,
+                                    key=f"admin_cb_dist_{n_cb}_{provincia}", disabled=not ds)
+            direccion = st.text_input("Direcci\u00f3n de la base o comando",
+                                      placeholder="Ej.: Jr. Lima 123, a una cuadra de la plaza",
+                                      key=f"admin_cb_dir_{n_cb}")
+            usuario = st.text_input("Crear usuario de la base", key=f"admin_cb_user_{n_cb}").strip()
+            password = st.text_input("Contrase\u00f1a inicial (m\u00ednimo 10 caracteres, con letras y n\u00fameros)",
+                                     type="password", key=f"admin_cb_pw_{n_cb}")
+            confirmar = st.text_input("Confirmar contrase\u00f1a", type="password", key=f"admin_cb_pw2_{n_cb}")
+            acepta = st.checkbox("Confirmo que estoy autorizado para crear esta cuenta.",
+                                 key=f"admin_cb_ok_{n_cb}")
+            crear = st.button("Crear base", key=f"admin_cb_btn_{n_cb}")
         if crear:
-            if not nombre.strip() or provincia not in DISTRITOS_PUNO or distrito not in ds:
-                st.warning("Completa el nombre, la provincia y el distrito.")
+            creada = False
+            if (not nombre.strip() or provincia not in DISTRITOS_PUNO or distrito not in ds
+                    or not direccion.strip()):
+                st.warning("Completa el nombre, la provincia, el distrito y la direcci\u00f3n.")
+            elif len(direccion.strip()) < 5:
+                st.warning("Escribe una direcci\u00f3n m\u00e1s completa para poder ubicar la base.")
             elif not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", usuario):
                 st.warning("El usuario debe tener de 3 a 40 caracteres v\u00e1lidos.")
             elif not (10 <= len(password) <= 64 and re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
@@ -1408,9 +1425,15 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             "distrito": distrito, "direccion": direccion.strip(), "usuario": usuario,
                             "password_hash": crear_hash(password)
                         }).execute()
-                        st.success("Base creada correctamente.")
+                        creada = True
                 except Exception as e:
                     error_supabase("No se pudo crear la base.", e)
+            if creada:
+                # Se cambia el contador para que el formulario aparezca limpio.
+                st.session_state["admin_crear_base_n"] = n_cb + 1
+                st.session_state["mostrar_msg_crear_base"] = "Base creada correctamente."
+                st.rerun()
+ 
  
     if panel == "Bases" and sub == "Integrantes":
         st.subheader("Bases e integrantes")
@@ -2223,3 +2246,4 @@ with st.expander("Aviso de privacidad"):
         "correcci\u00f3n o eliminaci\u00f3n. No registres a nadie sin autorizaci\u00f3n documentada. "
         "La consulta p\u00fablica del QR muestra \u00fanicamente nombre, cargo, bases y fotograf\u00eda, y nunca el DNI ni el tel\u00e9fono."
     )
+ 
