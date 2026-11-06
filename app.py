@@ -1378,7 +1378,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         with st.form("crear_base"):
             nombre = st.text_input("Nombre de la base o comando")
             provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS)
-            Dirección de la base/comando = st.tex_imput("Dirección de la base o comando")
+            Dirección = st.tex_imput("Dirección de la base o comando")
             ds = sorted(DISTRITOS_PUNO.get(provincia, []))
             distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds,
                                     disabled=not ds)
