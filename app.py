@@ -1406,7 +1406,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     else:
                         supabase.table("bases_campana").insert({
                             "nombre_base": nombre.strip(), "provincia": provincia,
-                            "distrito": distrito, "usuario": usuario,
+                            "distrito": distrito, "direccion":direccion.strip(), "usuario": usuario,
                             "password_hash": crear_hash(password)
                         }).execute()
                         st.success("Base creada correctamente.")
