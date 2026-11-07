@@ -158,7 +158,7 @@ CARGOS = [
     "SECRETARIO(a) DE ASESORIA ELECTORAL Y DEFENSA DEL VOTO",
     "SECRETARIO(a) DE INTERVENCION GRAFICA TERRITORIAL",
     "MILITANTE",
-    "OTRO"
+    "Otro"
 ]
  
 # ---------------------------------------------------------------------
@@ -504,38 +504,11 @@ def error_supabase(mensaje, error=None):
     st.caption("Si el problema contin\u00faa, comunica la referencia al administrador.")
  
 def subir_archivo(bucket, path, contenido, content_type):
-    # Se conserva este helper para plantillas y archivos de diseno que pueden
-    # necesitar actualizar un archivo existente.
     supabase.storage.from_(bucket).upload(
         path=path, file=contenido,
         file_options={"content-type": content_type, "upsert": "true"}
     )
     return supabase.storage.from_(bucket).get_public_url(path)
-
-
-def subir_foto_integrante(path, contenido):
-    # Las fotos usan nombres UUID unicos; no necesitan sobrescribir archivos.
-    # Este helper separado evita cambiar el comportamiento de plantillas/disenos.
-    try:
-        supabase.storage.from_(BUCKET_FOTOS).upload(
-            path=path,
-            file=bytes(contenido),
-            file_options={
-                "content-type": "image/jpeg",
-                "cache-control": "3600",
-                "upsert": "false",
-            },
-        )
-        url = supabase.storage.from_(BUCKET_FOTOS).get_public_url(path)
-        if not url:
-            raise RuntimeError("Supabase no devolvio la URL publica de la fotografia.")
-        return url
-    except Exception as e:
-        raise RuntimeError(
-            "No se pudo subir la fotografia al bucket 'fotos_integrantes'. "
-            "Verifica que el bucket exista y que SUPABASE_KEY tenga permiso de INSERT en Storage. "
-            f"Detalle: {str(e)[:350]}"
-        ) from e
  
 MAX_IMG_BYTES = 8 * 1024 * 1024
  
@@ -546,10 +519,16 @@ def procesar_foto(archivo, lado_max=900) -> bytes:
     # Valida que sea una imagen real, corrige la orientacion, reduce el tamano
     # y la guarda como JPEG nuevo (asi se eliminan metadatos EXIF/GPS).
     try:
-        im = Image.open(io.BytesIO(archivo.getvalue()))
+        # CORRECCIÓN: leer los bytes de forma segura antes de abrir con Pillow
+        contenido = archivo.getvalue()
+        if not contenido:
+            raise ValueError("El archivo de imagen está vacío o no se cargó correctamente.")
+        im = Image.open(io.BytesIO(contenido))
         im.load()
-    except Exception:
-        raise ValueError("La fotograf\u00eda no es una imagen v\u00e1lida.")
+    except Exception as e:
+        # CORRECCIÓN: imprimir el error real en los logs de Streamlit
+        print(f"ERROR procesando foto: {e}")
+        raise ValueError("La fotograf\u00eda no es una imagen v\u00e1lida o no se pudo leer.")
     im = ImageOps.exif_transpose(im).convert("RGB")
     im.thumbnail((lado_max, lado_max))
     salida = io.BytesIO()
@@ -720,8 +699,7 @@ def guardar_edicion_integrante(orig, datos, foto=None, quitar_foto=False):
     foto_vieja = orig.get("foto_url")
     if foto is not None:
         path = f'{datos["base_id"]}/{uuid.uuid4().hex}.jpg'
-        datos_foto = procesar_foto(foto)
-        datos["foto_url"] = subir_foto_integrante(path, datos_foto)
+        datos["foto_url"] = subir_archivo(BUCKET_FOTOS, path, procesar_foto(foto), "image/jpeg")
     elif quitar_foto:
         datos["foto_url"] = None
     supabase.table("integrantes_base").update(datos).eq("id", orig["id"]).execute()
@@ -1584,6 +1562,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             st.caption("Esta persona tiene credencial. Si cambias el DNI, se elimina y hay que generar una nueva.")
                         destinos = {f'{b["nombre_base"]} (ID {b["id"]})': b["id"] for b in bases_adm}
                         cargo_act = m.get("cargo") or ""
+                        # CORRECCIÓN: Se quitó clear_on_submit=True para evitar que la foto se borre antes de procesarse.
                         with st.form(f"admin_form_ed_{mid}"):
                             e_nom = st.text_input("Nombres", value=m.get("nombres", ""), key=f"admin_en_{mid}")
                             e_ape = st.text_input("Apellidos", value=m.get("apellidos", ""), key=f"admin_ea_{mid}")
@@ -1602,7 +1581,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             e_quitar = st.checkbox("Quitar la fotograf\u00eda actual", key=f"admin_eq_{mid}")
                             guardar_ed = st.form_submit_button("Guardar cambios")
                         if guardar_ed:
-                            cargo_final = e_otro.strip() if e_csel == "OTRO" else e_csel
+                            cargo_final = e_otro.strip() if e_csel == "Otro" else e_csel
                             dni_n = e_dni.strip()
                             destino_id = destinos[e_base]
                             if not e_nom.strip() or not e_ape.strip():
@@ -1611,7 +1590,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                 st.warning("El DNI debe tener 8 d\u00edgitos.")
                             elif not re.fullmatch(r"\+?\d{9,15}", e_cel.strip()):
                                 st.warning("Celular inv\u00e1lido.")
-                            elif e_csel == "OTRO" and not cargo_final:
+                            elif e_csel == "Otro" and not cargo_final:
                                 st.warning("Especifica el cargo.")
                             elif e_foto is not None and e_foto.size > MAX_IMG_BYTES:
                                 st.warning("La fotograf\u00eda debe pesar menos de 8 MB.")
@@ -1628,8 +1607,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                     st.rerun()
                                 except ValueError as ve:
                                     st.warning(str(ve))
-                                except Exception as e:
-                                    error_supabase("No se pudieron guardar los cambios del integrante.", e)
                         with st.expander("Eliminar a este integrante"):
                             st.warning("Se eliminan sus datos, su fotograf\u00eda y su asistencia registrada. Si tiene credencial "
                                        "y no est\u00e1 registrado en otra base, esa credencial tambi\u00e9n se elimina. No se puede deshacer.")
@@ -2211,26 +2188,27 @@ if st.session_state.base_id is not None:
     st.markdown(f'<div class="chip"><span class="dot"></span>{_html.escape(str(st.session_state.base_nombre))} \u00b7 {_html.escape(str(st.session_state.base_provincia))} / {_html.escape(str(st.session_state.base_distrito))}</div>', unsafe_allow_html=True)
     st.subheader("Integrantes de tu base")
     with st.expander("Agregar integrante", expanded=False):
-        with st.form("form_integrante", clear_on_submit=True):
+        # CORRECCIÓN: Se quitó clear_on_submit=True para evitar que la foto se borre antes de procesarse.
+        with st.form("form_integrante"):
             nombres = st.text_input("Nombres")
             apellidos = st.text_input("Apellidos")
             dni = st.text_input("DNI (8 d\u00edgitos)")
             celular = st.text_input("Celular (9 a 15 d\u00edgitos)")
             cargo_sel = st.selectbox("Cargo o condici\u00f3n", CARGOS)
-            cargo_otro = st.text_input("Especifica el cargo") if cargo_sel == "OTRO" else ""
+            cargo_otro = st.text_input("Especifica el cargo") if cargo_sel == "Otro" else ""
             foto = st.file_uploader("Fotograf\u00eda del integrante (opcional)", type=["jpg", "jpeg", "png"])
             consentimiento = st.checkbox("Confirmo que la persona fue informada y autoriz\u00f3 el registro de sus datos y fotograf\u00eda, "
                 "y que su nombre, cargo y fotograf\u00eda se mostrar\u00e1n al escanear su credencial.")
             guardar = st.form_submit_button("Guardar integrante")
         if guardar:
-            cargo_final = cargo_otro.strip() if cargo_sel == "OTRO" else cargo_sel
+            cargo_final = cargo_otro.strip() if cargo_sel == "Otro" else cargo_sel
             if not nombres.strip() or not apellidos.strip():
                 st.warning("Completa nombres y apellidos.")
             elif not re.fullmatch(r"\d{8}", dni.strip()):
                 st.warning("El DNI debe tener 8 d\u00edgitos.")
             elif not re.fullmatch(r"\+?\d{9,15}", celular.strip()):
                 st.warning("Celular inv\u00e1lido.")
-            elif cargo_sel == "OTRO" and not cargo_final:
+            elif cargo_sel == "Otro" and not cargo_final:
                 st.warning("Especifica el cargo.")
             elif not consentimiento:
                 st.warning("Confirma que existe autorizaci\u00f3n.")
@@ -2249,7 +2227,7 @@ if st.session_state.base_id is not None:
                             # y el nombre del archivo ya no contiene el DNI.
                             datos_foto = procesar_foto(foto)
                             path = f"{base_id}/{uuid.uuid4().hex}.jpg"
-                            url_foto = subir_foto_integrante(path, datos_foto)
+                            url_foto = subir_archivo(BUCKET_FOTOS, path, datos_foto, "image/jpeg")
                         supabase.table("integrantes_base").insert({
                             "base_id": base_id, "nombres": nombres.strip(),
                             "apellidos": apellidos.strip(), "dni": dni.strip(),
