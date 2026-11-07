@@ -1,6 +1,16 @@
 import streamlit as st
+import pandas as pd
+import uuid
+import hashlib
+import json
+import io
+import os
+import re
+import requests
 import logging
+from datetime import date, datetime, timezone
 from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 from config import supabase, BUCKET_FOTOS, BUCKET_PLANTILLAS, APP_PUBLIC_URL
 from config import clave_persona, clave_persona_legacy, hash_texto, token_credencial, token_reproducible
 # DATOS
