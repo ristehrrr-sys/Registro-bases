@@ -1,5 +1,7 @@
 import streamlit as st
-from config import supabase, BUCKET_FOTOS, BUCKET_PLANTILLAS, APP_PUBLIC_URL, clave_persona, clave_persona_legacy, hash_texto, token_credencial, token_reproducible
+import logging
+from config import supabase, BUCKET_FOTOS, BUCKET_PLANTILLAS, APP_PUBLIC_URL
+from config import clave_persona, clave_persona_legacy, hash_texto, token_credencial, token_reproducible
 # DATOS
 # ---------------------------------------------------------------------
 def traer_todo(construir, tam=1000):
