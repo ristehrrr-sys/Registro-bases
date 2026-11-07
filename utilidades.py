@@ -9,6 +9,9 @@ import re
 import requests
 import logging
 import unicodedata
+import copy
+import qrcode
+import zipfile
 from datetime import date, datetime, timezone
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
