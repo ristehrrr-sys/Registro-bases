@@ -1,5 +1,6 @@
 import streamlit as st
 import logging
+from functools import lru_cache
 from config import supabase, BUCKET_FOTOS, BUCKET_PLANTILLAS, APP_PUBLIC_URL
 from config import clave_persona, clave_persona_legacy, hash_texto, token_credencial, token_reproducible
 # DATOS
