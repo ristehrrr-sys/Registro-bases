@@ -1,6 +1,18 @@
 import streamlit as st
 from config import *
 from utilidades import *
+# INICIALIZAR VARIABLES DE SESION
+for k, v in {
+    "base_id": None,
+    "base_nombre": "",
+    "base_provincia": "",
+    "base_distrito": "",
+    "base_direccion": "",
+    "admin_autenticado": False,
+    "es_admin": False
+}.items():
+    if k not in st.session_state:
+        st.session_state[k] = v 
 # VERIFICACION PUBLICA DEL QR
 # ---------------------------------------------------------------------
 st.markdown('<div class="top"><div class="av">\U0001f5f3\ufe0f</div><div class="tt"><div class="n">Registro de Bases y Comandos</div><div class="s">Gesti\u00f3n de bases, integrantes y credenciales verificables</div></div></div>', unsafe_allow_html=True)
@@ -36,7 +48,6 @@ if token_qr:
     except Exception as e:
         error_supabase("No se pudo verificar la credencial.", e)
     st.stop()
- 
  
 # ---------------------------------------------------------------------
 # ACCESO
