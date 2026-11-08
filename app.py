@@ -46,24 +46,20 @@ st.markdown("""
   --acc2: #159E9A;
   --acc-dark: #117C7A;
   --acc-light: #E0F7F5;
-
   --bg: #F1F7F8;
   --bg2: #F7FAFB;
   --card: #FFFFFF;
   --card2: #EAF5F5;
-
   --line: #D5E5E7;
   --text: #263B40;
   --muted: #657D82;
-
   --red: #DC3545;
   --yellow: #E5A323;
   --blue: #3185C7;
-
   color-scheme: light;
 }
 
-/* Elementos secundarios: conservar cabecera y controles nativos */
+/* Elementos secundarios */
 #MainMenu,
 .stDeployButton,
 footer,
@@ -71,7 +67,7 @@ footer,
   display: none !important;
 }
 
-/* Cabecera transparente: NO ocultar */
+/* Cabecera transparente */
 [data-testid="stHeader"] {
   background: transparent !important;
   background-color: transparent !important;
@@ -93,11 +89,7 @@ footer,
   max-width: 1200px !important;
 }
 
-/* =========================================================
-   MENÚ LATERAL
-   No modificar los controles nativos de Streamlit
-   ========================================================= */
-
+/* MENÚ LATERAL */
 [data-testid="stSidebar"] {
   background: linear-gradient(
     180deg,
@@ -188,10 +180,7 @@ footer,
   padding: 10px 8px 6px;
 }
 
-/* =========================================================
-   TIPOGRAFÍA GENERAL
-   ========================================================= */
-
+/* TIPOGRAFÍA GENERAL */
 h1, h2, h3, h4, p, span, label, .stMarkdown {
   color: var(--text) !important;
 }
@@ -220,10 +209,7 @@ hr {
   opacity: .8;
 }
 
-/* =========================================================
-   BARRA SUPERIOR PERSONALIZADA
-   ========================================================= */
-
+/* BARRA SUPERIOR PERSONALIZADA */
 .top {
   display: flex;
   align-items: center;
@@ -287,10 +273,7 @@ hr {
   box-shadow: 0 0 0 3px rgba(32,184,176,.18);
 }
 
-/* =========================================================
-   BOTONES GENERALES
-   ========================================================= */
-
+/* BOTONES GENERALES */
 .stButton > button,
 .stDownloadButton > button,
 .stFormSubmitButton > button {
@@ -339,10 +322,7 @@ hr {
   color: #FFFFFF !important;
 }
 
-/* =========================================================
-   BOTONES DE ELIMINACIÓN: CONSERVAR ROJO
-   ========================================================= */
-
+/* BOTONES DE ELIMINACIÓN */
 [class*="st-key-del_"]:not([class*="st-key-del_no_"]) button,
 [class*="st-key-eliminar_cred"] button,
 [class*="st-key-admin_delbtn_"] button {
@@ -366,10 +346,7 @@ hr {
   border-color: transparent !important;
 }
 
-/* =========================================================
-   MÉTRICAS Y TARJETAS
-   ========================================================= */
-
+/* MÉTRICAS Y TARJETAS */
 [data-testid="stMetric"] {
   background: var(--card) !important;
   border: 1px solid var(--line) !important;
@@ -449,10 +426,7 @@ hr {
   margin-top: 2px;
 }
 
-/* =========================================================
-   BARRAS DE PROGRESO
-   ========================================================= */
-
+/* BARRAS DE PROGRESO */
 .bar-row {
   margin: 10px 0 14px;
 }
@@ -494,10 +468,7 @@ hr {
   background: linear-gradient(90deg, #159E9A, #42D6CD);
 }
 
-/* =========================================================
-   FORMULARIOS Y EXPANDERS
-   ========================================================= */
-
+/* FORMULARIOS Y EXPANDERS */
 [data-testid="stForm"] {
   border: 1px solid var(--line) !important;
   border-radius: 14px !important;
@@ -525,10 +496,7 @@ hr {
   border: 1px solid var(--line);
 }
 
-/* =========================================================
-   CAMPOS DE ENTRADA
-   ========================================================= */
-
+/* CAMPOS DE ENTRADA */
 [data-baseweb="input"],
 [data-baseweb="textarea"],
 [data-baseweb="select"] > div {
@@ -549,10 +517,7 @@ hr {
   background: #FFFFFF !important;
 }
 
-/* =========================================================
-   ADAPTACIÓN PARA CELULARES
-   ========================================================= */
-
+/* ADAPTACIÓN PARA CELULARES */
 @media (max-width: 640px) {
   .block-container {
     padding-left: .75rem !important;
@@ -578,6 +543,34 @@ hr {
     font-size: 1.3rem;
   }
 }
+
+/* =========================================================
+   OCULTAR ACCIONES SUPERIORES: SHARE, ESTRELLA, LÁPIZ, GITHUB
+   ========================================================= */
+
+/* Ocultar barra de herramientas */
+[data-testid="stToolbar"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Ocultar acciones del encabezado */
+[data-testid="stHeaderActionElements"] {
+  display: none !important;
+}
+
+/* Mantener visible el encabezado y los controles del sidebar */
+[data-testid="stHeader"] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Conservar el botón nativo para abrir/cerrar el menú lateral */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+  display: flex !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
