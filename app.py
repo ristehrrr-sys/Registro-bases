@@ -57,19 +57,17 @@ st.markdown("""
   display: none !important;
 }
 
-/* Header mínimo: solo para que aparezca el botón de abrir/cerrar sidebar */
+/* Header transparente pero sin forzar altura ni colores de TODOS los hijos */
 [data-testid="stHeader"] {
   background: transparent !important;
-  height: 3.2rem !important;
   border-bottom: none !important;
   box-shadow: none !important;
 }
-[data-testid="stHeader"] * {
-  color: #94A3B8 !important;
-}
-/* El botón de colapsar/expandir sidebar debe verse siempre */
+
+/* Forzar el botón del sidebar a ser visible y clicable */
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"],
 button[kind="header"] {
   display: flex !important;
   visibility: visible !important;
@@ -80,11 +78,13 @@ button[kind="header"] {
   border-radius: 10px !important;
   width: 2.4rem !important;
   height: 2.4rem !important;
+  z-index: 9999 !important;
 }
-button[kind="header"]:hover {
+button[kind="header"]:hover,
+[data-testid="stSidebarCollapsedControl"]:hover,
+[data-testid="stSidebarCollapseButton"]:hover {
   background: rgba(47,176,103,.28) !important;
 }
-
 /* Fondo general oscuro */
 .stApp, [data-testid="stAppViewContainer"] {
   background: var(--bg) !important;
