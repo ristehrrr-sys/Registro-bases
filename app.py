@@ -50,11 +50,40 @@ st.markdown("""
   --blue: #3B82F6;
 }
 
-/* Ocultar elementos nativos de Streamlit */
-header, [data-testid="stHeader"], #MainMenu, .stDeployButton, footer,
-[data-testid="stToolbar"], [data-testid="stDecoration"] {
-  visibility: hidden !important;
+/* Ocultar solo el botón de GitHub y menús nativos (SIN ocultar el header) */
+#MainMenu, .stDeployButton, footer, [data-testid="stToolbar"], [data-testid="stDecoration"] {
   display: none !important;
+}
+
+/* Hacer la cabecera transparente para que no se vea la franja blanca */
+[data-testid="stHeader"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Forzar que el botón del menú (la flechita) sea visible en todas las pantallas */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  top: 15px !important;
+  left: 15px !important;
+  z-index: 999999 !important;
+  background-color: #1F883D !important;
+  border-radius: 8px !important;
+  padding: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* Pintar la flechita de adentro de blanco */
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg {
+  fill: white !important;
+  color: white !important;
+  width: 24px !important;
+  height: 24px !important;
 }
 
 /* Fondo general oscuro */
