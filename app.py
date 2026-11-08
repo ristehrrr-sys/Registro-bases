@@ -80,28 +80,42 @@ st.markdown("""
   border: none !important;
   box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
 }
-
-/* Ocultar el ícono SVG por defecto (para que no salga el logo de GitHub) */
-[data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="stSidebarCollapseButton"] svg,
-[data-testid="collapsedControl"] svg,
-button[kind=¨header¨] svg {
-  display: none !important;
+/* Forzar el botón con las 3 rayitas y ocultar el ícono original */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+button[kind="header"] {
+    display: flex !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 15px !important;
+    left: 15px !important;
+    z-index: 999999 !important;
+    background-color: #1F883D !important; /* Fondo verde */
+    border-radius: 8px !important;
+    width: 45px !important;
+    height: 45px !important;
+    border: none !important;
 }
 
-/* Poner el ícono de las 3 rayitas (☰) en blanco */
+/* Ocultar el dibujo de la flecha por defecto */
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg,
+button[kind="header"] svg {
+    display: none !important;
+}
+
+/* Poner las 3 rayitas blancas en su lugar */
 [data-testid="stSidebarCollapsedControl"]::before,
-[data-testid="stSidebarCollapseButton"]::before,
-[data-testid="collapsedControl"]::before {
-  content: "☰" !important;
-  color: white !important;
-  font-size: 24px !important;
-  font-weight: bold !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 100% !important;
-  height: 100% !important;
+[data-testid="collapsedControl"]::before,
+button[kind="header"]::before {
+    content: "☰" !important;
+    color: white !important;
+    font-size: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 /* Fondo general oscuro */
 .stApp, [data-testid="stAppViewContainer"] {
