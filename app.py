@@ -30,7 +30,7 @@ st.set_page_config(
     page_title="Registro de Bases y Comandos",
     page_icon="\U0001f5f3\ufe0f",
     layout="wide",
-    initial_sidebar_state="auto", # <-- MODIFICADO: 'expanded' a 'auto'
+    initial_sidebar_state="expanded", # Lo dejamos expandido
 )
 
 st.markdown("""
@@ -57,35 +57,29 @@ st.markdown("""
   display: none !important;
 }
 
-/* MODIFICADO: Header transparente sin forzar altura */
+/* Header trasparente */
 [data-testid="stHeader"] {
   background: transparent !important;
   border-bottom: none !important;
   box-shadow: none !important;
 }
 
-/* MODIFICADO: Forzar el botón del sidebar a ser visible, flotante y clicable */
+/* FORZAR VISIBILIDAD DEL BOTÓN DEL MENÚ (Funciona en PC y Móvil) */
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
-[data-testid="stSidebarCollapseButton"],
 button[kind="header"] {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
-  position: fixed !important;
-  top: 15px !important;
-  left: 15px !important;
-  z-index: 999999 !important;
   color: #6BE79A !important;
   background: rgba(47,176,103,.15) !important;
   border: 1px solid rgba(47,176,103,.35) !important;
   border-radius: 10px !important;
   width: 2.4rem !important;
   height: 2.4rem !important;
+  z-index: 999999 !important;
 }
-button[kind="header"]:hover,
-[data-testid="stSidebarCollapsedControl"]:hover,
-[data-testid="stSidebarCollapseButton"]:hover {
+button[kind="header"]:hover {
   background: rgba(47,176,103,.28) !important;
 }
 
@@ -361,7 +355,6 @@ div[data-testid="stDataFrameResizable"] {
   border: 1px solid var(--line) !important;
   background: var(--card) !important;
 }
-/* Cabecera de la tabla */
 [data-testid="stDataFrame"] thead th,
 [data-testid="stDataFrame"] th,
 [data-testid="stDataFrame"] [role="columnheader"] {
@@ -371,7 +364,6 @@ div[data-testid="stDataFrameResizable"] {
   border-bottom: 1px solid var(--line) !important;
   border-right: 1px solid rgba(148,163,184,.08) !important;
 }
-/* Celdas del cuerpo */
 [data-testid="stDataFrame"] tbody td,
 [data-testid="stDataFrame"] td,
 [data-testid="stDataFrame"] [role="gridcell"] {
@@ -380,23 +372,19 @@ div[data-testid="stDataFrameResizable"] {
   border-bottom: 1px solid rgba(148,163,184,.08) !important;
   border-right: 1px solid rgba(148,163,184,.05) !important;
 }
-/* Filas alternadas */
 [data-testid="stDataFrame"] tbody tr:nth-child(even) td,
 [data-testid="stDataFrame"] tbody tr:nth-child(even) [role="gridcell"] {
   background: #151E2E !important;
 }
-/* Hover de fila */
 [data-testid="stDataFrame"] tbody tr:hover td,
 [data-testid="stDataFrame"] tbody tr:hover [role="gridcell"] {
   background: #1E2A3D !important;
 }
-/* Contenedor interno de Glide/Dataframe */
 [data-testid="stDataFrame"] canvas,
 [data-testid="stDataFrame"] .dvn-scroller,
 [data-testid="stDataFrame"] [class*="glide"] {
   background: var(--card) !important;
 }
-/* data_editor también */
 [data-testid="stDataFrame"] [data-testid="data-grid-canvas"],
 [data-testid="stDataEditor"] {
   background: var(--card) !important;
@@ -421,14 +409,12 @@ div[data-testid="stDataFrameResizable"] {
   color: #E2E8F0 !important;
   background: transparent !important;
 }
-/* Placeholder */
 [data-baseweb="input"] input::placeholder,
 [data-baseweb="textarea"] textarea::placeholder {
   color: #64748B !important;
 }
 [data-testid="stImage"] img { border-radius: 12px; }
 
-/* Selectbox en contenido principal */
 [data-testid="stSelectbox"] [data-baseweb="select"] > div {
   min-height: 44px !important;
   border: 1px solid var(--line) !important;
@@ -436,7 +422,6 @@ div[data-testid="stDataFrameResizable"] {
   background: #151E2E !important;
   color: #E2E8F0 !important;
 }
-/* Menú desplegable del select */
 [data-baseweb="popover"],
 [data-baseweb="menu"],
 ul[role="listbox"] {
@@ -456,7 +441,6 @@ ul[role="listbox"] li:hover,
   color: #6BE79A !important;
 }
 
-/* Warning / info boxes más suaves en oscuro */
 [data-testid="stAlert"] [data-testid="stMarkdownContainer"] {
   color: #E2E8F0 !important;
 }
@@ -479,8 +463,6 @@ div[data-baseweb="notification"],
 @st.cache_resource
 def conectar_supabase():
     url = st.secrets["SUPABASE_URL"].strip()
-    # En Streamlit Cloud configura SUPABASE_KEY con la clave service_role
-    # SOLO en Secrets del servidor. Nunca la publiques en GitHub ni en el navegador.
     key = st.secrets["SUPABASE_KEY"].strip()
     return create_client(url, key)
  
@@ -548,30 +530,23 @@ def hash_texto(valor: str) -> str:
     return hashlib.sha256(valor.encode("utf-8")).hexdigest()
  
 def _clave_hmac() -> bytes:
-    # Recomendado: define CLAVE_HMAC (texto largo y aleatorio) en Secrets.
-    # Si no existe, se deriva de SUPABASE_KEY para no romper la app.
     secreto = str(st.secrets.get("CLAVE_HMAC", "")).strip()
     if not secreto:
         secreto = "persona_key:" + str(st.secrets["SUPABASE_KEY"])
     return secreto.encode("utf-8")
  
 def clave_persona(dni) -> str:
-    # HMAC con clave secreta: no se puede revertir por fuerza bruta sin la clave.
     return hmac.new(_clave_hmac(), str(dni).strip().encode("utf-8"), hashlib.sha256).hexdigest()
  
 def clave_persona_legacy(dni) -> str:
-    # Formato anterior (SHA-256 sin clave). Solo se usa para encontrar credenciales ya emitidas.
     return hash_texto(str(dni).strip())
  
 def token_credencial(dni, cred_id) -> str:
-    # El codigo del QR no es aleatorio: se calcula con la clave secreta, el DNI y el id de la
-    # credencial. Asi se puede volver a descargar la misma credencial sin guardar el codigo.
     mac = hmac.new(_clave_hmac(), f"token:{str(dni).strip()}:{cred_id}".encode("utf-8"),
                    hashlib.sha256).digest()
     return base64.urlsafe_b64encode(mac).decode("ascii").rstrip("=")
  
 def token_reproducible(dni, cred) -> bool:
-    # True si la credencial se emitio con este sistema (su huella coincide con el codigo calculado).
     try:
         calculado = hash_texto(token_credencial(dni, cred["id"]))
         return hmac.compare_digest(calculado, str(cred.get("token_hash", "")))
@@ -579,8 +554,6 @@ def token_reproducible(dni, cred) -> bool:
         return False
  
 def admin_valido(usuario: str, password: str) -> bool:
-    # Compatibilidad con los Secrets de la aplicacion anterior:
-    # se acepta ADMIN_PASSWORD (texto en Secrets) o ADMIN_PASSWORD_HASH.
     esperado_usuario = str(st.secrets.get("ADMIN_USER", "")).strip()
     esperado_hash = str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip()
     esperado_password = str(st.secrets.get("ADMIN_PASSWORD", ""))
@@ -592,7 +565,6 @@ def admin_valido(usuario: str, password: str) -> bool:
  
 MAX_INTENTOS = 5
 VENTANA_SEG = 15 * 60
-# Hash de relleno para que el tiempo de respuesta sea similar si el usuario no existe.
 HASH_FICTICIO = "0" * 32 + "$" + "0" * 64
  
 @st.cache_resource
@@ -618,13 +590,12 @@ def _fijar_seccion(estado, valor):
     st.session_state[estado] = valor
  
 def selector(opciones, clave):
-    # Botones de seccion. El activo es el de tipo "primary". Devuelve la opcion elegida.
     estado = f"{clave}_sel"
     if st.session_state.get(estado) not in opciones:
         st.session_state[estado] = opciones[0]
     try:
         contenedor = st.container(key=f"nav_{clave}")
-    except TypeError:                  # Streamlit antiguo, sin claves en contenedores
+    except TypeError:
         contenedor = st.container()
     with contenedor:
         cols = st.columns(len(opciones))
@@ -657,7 +628,6 @@ for k, v in {
 # DATOS
 # ---------------------------------------------------------------------
 def traer_todo(construir, tam=1000):
-    # Supabase devuelve como maximo 1000 filas por consulta; se pide por paginas.
     filas, ini = [], 0
     while True:
         bloque = construir().range(ini, ini + tam - 1).execute().data or []
@@ -714,7 +684,6 @@ def ubicacion_texto(base):
     return texto
  
 def excel_multihoja(hojas, titulo=None):
-    # hojas: {nombre: DataFrame}. Encabezado con estilo, filtros, panel fijo y columnas ajustadas.
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
     archivo = io.BytesIO()
@@ -744,7 +713,7 @@ def excel_multihoja(hojas, titulo=None):
                 for celda in fila:
                     if isinstance(celda.value, str):
                         if celda.value.startswith("="):
-                            celda.data_type = "s"   # texto, nunca formula
+                            celda.data_type = "s"
                         celda.number_format = "@"
     archivo.seek(0)
     return archivo.getvalue()
@@ -774,7 +743,6 @@ def dataframe_detallado(filas, mapa_bases):
     return pd.DataFrame(salida, columns=COLUMNAS_DETALLE)
  
 def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
-    # Lista imprimible de una base. con_firma=True anade columna de firma (asistencia).
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -837,7 +805,6 @@ def pdf_lista(titulo, subtitulo, miembros, con_firma=False):
     return buf.getvalue()
  
 def botones_lista(base, miembros, clave):
-    # Tres descargas de la lista de una base: Excel, PDF y PDF con columna de firma.
     nombre = base.get("nombre_base", "base")
     archivo = nombre_archivo_seguro(nombre)
     ubic = ubicacion_texto(base)
@@ -883,8 +850,6 @@ def ext_imagen(archivo) -> str:
     return "png" if getattr(archivo, "type", "") == "image/png" else "jpg"
  
 def procesar_foto(archivo, lado_max=900) -> bytes:
-    # Valida que sea una imagen real, corrige la orientacion, reduce el tamano
-    # y la guarda como JPEG nuevo (asi se eliminan metadatos EXIF/GPS).
     try:
         im = Image.open(io.BytesIO(archivo.getvalue()))
         im.load()
@@ -942,7 +907,6 @@ def activar_plantilla(pid):
 # CREDENCIALES QR
 # ---------------------------------------------------------------------
 def credencial_de_dni(dni):
-    # Busca con la clave nueva (HMAC) y con la anterior, para no duplicar credenciales ya emitidas.
     claves = list({clave_persona(dni), clave_persona_legacy(dni)})
     filas = (supabase.table("credenciales")
              .select("id,integrante_id,estado,emitida_en,token_hash").in_("persona_key", claves)
@@ -950,7 +914,6 @@ def credencial_de_dni(dni):
     return filas[0] if filas else None
  
 def escribir_credencial(existente_id, fila):
-    # "fila" trae un id nuevo: asi el codigo del QR cambia y el anterior deja de valer.
     if existente_id:
         try:
             supabase.table("credenciales").update(fila).eq("id", existente_id).execute()
@@ -961,7 +924,6 @@ def escribir_credencial(existente_id, fila):
     supabase.table("credenciales").insert(fila).execute()
  
 def emitir_credencial(integrante, plantilla_id, cred_id, token):
-    # Un DNI = una credencial.
     dni = str(integrante["dni"]).strip()
     existente = credencial_de_dni(dni)
     fila = {
@@ -985,7 +947,6 @@ def datos_bases_por_dni(dni):
             .in_("id", ids).execute().data or [])
  
 def generar_clave(n=12):
-    # Sin caracteres que se confunden (0/O, 1/l/I). Siempre con letras y numeros.
     alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
     while True:
         clave = "".join(secrets.choice(alfabeto) for _ in range(n))
@@ -993,7 +954,6 @@ def generar_clave(n=12):
             return clave
  
 def ruta_de_foto(url):
-    # De la URL publica de la foto saca su ruta dentro del bucket.
     if not url:
         return None
     marca = f"/{BUCKET_FOTOS}/"
@@ -1010,8 +970,6 @@ def borrar_fotos(urls):
             logger.warning("No se pudieron borrar fotos: %r", e)
  
 def liberar_credencial(integrante):
-    # Se usa cuando a una persona se le cambia el DNI: su credencial (ligada al DNI anterior)
-    # pasa a otro registro de la misma persona si existe; si no, se elimina.
     dni = str(integrante["dni"]).strip()
     cred = credencial_de_dni(dni)
     if not cred or cred.get("integrante_id") != integrante["id"]:
@@ -1024,13 +982,11 @@ def liberar_credencial(integrante):
         supabase.table("credenciales").delete().eq("id", cred["id"]).execute()
  
 def eliminar_integrantes(integrantes):
-    # Elimina uno o muchos integrantes con todo lo que depende de ellos.
     if not integrantes:
         return
     ids = [i["id"] for i in integrantes]
     ids_set = set(ids)
     dni_de = {i["id"]: str(i.get("dni", "")).strip() for i in integrantes}
-    # Otros registros de la misma persona que se conservan (otra base con el mismo DNI).
     conservados = {}
     dnis = [d for d in set(dni_de.values()) if d]
     for k in range(0, len(dnis), 50):
@@ -1039,7 +995,6 @@ def eliminar_integrantes(integrantes):
         for f in filas:
             if f["id"] not in ids_set:
                 conservados.setdefault(str(f["dni"]).strip(), f["id"])
-    # Credenciales: pasan a otro registro de la misma persona o se eliminan.
     for k in range(0, len(ids), 100):
         creds = (supabase.table("credenciales").select("id,integrante_id")
                  .in_("integrante_id", ids[k:k + 100]).execute().data or [])
@@ -1083,7 +1038,6 @@ def descargar_bytes(url):
  
 @st.cache_data(ttl=600, show_spinner=False)
 def bytes_plantilla(path):
-    # La plantilla se descarga una sola vez y se reutiliza.
     return descargar_bytes(url_plantilla(path))
  
 def imagen_plantilla(path):
@@ -1092,7 +1046,6 @@ def imagen_plantilla(path):
     return im.convert("RGBA")
  
 def precargar_fotos(urls, max_hilos=8):
-    # Descarga las fotos en paralelo (sin tocar Streamlit dentro de los hilos).
     def bajar(u):
         try:
             im = Image.open(io.BytesIO(descargar_bytes(u)))
@@ -1123,14 +1076,12 @@ def _png(imagen):
     return b.getvalue()
  
 def generar_lote(personas, plantilla, dni_bases, progreso=None, existentes=None):
-    # Genera las imagenes en memoria. No toca la base de datos: eso se hace despues.
     fotos = precargar_fotos(list({p["foto_url"] for p in personas if p.get("foto_url")}))
     resultados, errores = [], []
     for i, p in enumerate(personas, start=1):
         try:
             dni_p = str(p["dni"]).strip()
             if existentes is not None:
-                # Volver a descargar: se reconstruye el mismo codigo de la credencial existente.
                 cred = existentes[dni_p]
                 if not token_reproducible(dni_p, cred):
                     raise ValueError("credencial emitida con una versi\u00f3n anterior")
@@ -1187,7 +1138,7 @@ def guardar_credenciales_lote(resultados, plantilla_id):
  
 def zip_credenciales(resultados):
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:   # los PNG ya vienen comprimidos
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
         for i, r in enumerate(resultados, start=1):
             p = r["persona"]
             nombre = (f'{i:03d}_{nombre_archivo_seguro(p.get("apellidos", ""))}_'
@@ -1205,7 +1156,6 @@ def pdf_credenciales(resultados, hoja_a4=False):
     cw, ch = 85.6 * mm, 54 * mm
     buf = io.BytesIO()
     if not hoja_a4:
-        # Una credencial por pagina, respetando la proporcion de la imagen.
         c = canvas.Canvas(buf, pagesize=(cw, ch))
         for r in resultados:
             for clave in ("frente_png", "reverso_png"):
@@ -1220,8 +1170,6 @@ def pdf_credenciales(resultados, hoja_a4=False):
                 c.showPage()
         c.save()
         return buf.getvalue()
-    # Hojas A4 con 8 credenciales (2 x 4). Primero los frentes y luego los reversos,
-    # con las columnas invertidas para que coincidan al imprimir a doble cara.
     pw_a4, ph_a4 = A4
     cols, filas = 2, 4
     gap = 5 * mm
@@ -1262,8 +1210,6 @@ def crear_qr(url):
  
 @lru_cache(maxsize=128)
 def cargar_fuente(tamano, negrita=False):
-    # Busca una fuente real en el sistema. Si el servidor no tiene ninguna, usa la
-    # interna de Pillow con el tamano pedido (antes salia diminuta e ignoraba el tamano).
     def ruta(carpeta, normal, bold):
         return f"{carpeta}/{bold if negrita else normal}"
     candidatos = [
@@ -1278,7 +1224,7 @@ def cargar_fuente(tamano, negrita=False):
         "arialbd.ttf" if negrita else "arial.ttf",
     ]
     try:
-        import matplotlib   # si esta instalado, trae DejaVu incluida
+        import matplotlib
         base = os.path.join(matplotlib.get_data_path(), "fonts", "ttf")
         candidatos.append(os.path.join(base, "DejaVuSans-Bold.ttf" if negrita else "DejaVuSans.ttf"))
     except Exception:
@@ -1289,7 +1235,7 @@ def cargar_fuente(tamano, negrita=False):
         except Exception:
             pass
     try:
-        return ImageFont.load_default(size=tamano)   # Pillow 10.1 o superior
+        return ImageFont.load_default(size=tamano)
     except Exception:
         return ImageFont.load_default()
  
@@ -1309,9 +1255,6 @@ def ajustar_texto(dibujo, texto, fuente, ancho_max):
         lineas.append(actual)
     return lineas or [""]
  
-# Distribuciones predefinidas. Todas las medidas son proporciones (0 a 1) del ancho y
-# del alto de la imagen, asi funcionan aunque la plantilla tenga otro tamano.
-# En "campos", "y" es la altura de la linea sobre la que se escribe el dato.
 DISENOS_PREDEFINIDOS = {
     "Marcos y l\u00edneas (ejemplo Puno)": {
         "version": 1,
@@ -1332,12 +1275,10 @@ DISENOS_PREDEFINIDOS = {
     },
 }
  
-# Si una plantilla con imagen no tiene distribucion guardada, se usa esta.
 DISENO_POR_DEFECTO = "Marcos y l\u00edneas (ejemplo Puno)"
  
 @st.cache_data(ttl=300, show_spinner=False)
 def cargar_diseno(plantilla_id):
-    # La distribucion de cada plantilla se guarda como diseno.json junto a sus imagenes.
     if not plantilla_id:
         return None
     try:
@@ -1362,7 +1303,6 @@ def guardar_diseno(plantilla_id, diseno):
     cargar_diseno.clear()
  
 def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=True):
-    # Escribe sobre una linea: reduce la letra si no cabe y, en ultimo caso, recorta con "...".
     t = tam
     fuente = cargar_fuente(t, negrita)
     minimo = max(10, int(tam * 0.55))
@@ -1394,7 +1334,6 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
                 foto = descargar_imagen(integrante["foto_url"]).convert("RGB")
         except Exception:
             foto = None
-        # Sin foto se conserva el dibujo de la plantilla (por ejemplo, la silueta).
         if foto is not None:
             lienzo.paste(ImageOps.fit(foto, (fw, fh), centering=(0.5, 0.35)), (fx, fy))
     q = diseno.get("qr")
@@ -1430,7 +1369,6 @@ def foto_demo():
  
 def eliminar_plantilla(p):
     pid = p["id"]
-    # Las credenciales ya emitidas se conservan: solo dejan de apuntar a esta plantilla.
     supabase.table("credenciales").update({"plantilla_id": None}).eq("plantilla_id", pid).execute()
     supabase.table("plantillas_credenciales").delete().eq("id", pid).execute()
     rutas = [r for r in (p.get("frontal_path"), p.get("posterior_path"), f"{pid}/diseno.json") if r]
@@ -1515,7 +1453,6 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
     if path:
         lienzo = imagen_plantilla(path)
     else:
-        # Plantilla predeterminada si no se cargo una imagen.
         lienzo = Image.new("RGBA", (1011, 638), "#F4F7FB")
         d = ImageDraw.Draw(lienzo)
         d.rounded_rectangle((8, 8, 1003, 630), radius=28, outline="#163B65", width=12)
@@ -1550,7 +1487,6 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
     if diseno:
         return aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img)
  
-    # Coordenadas relativas para adaptarse a plantillas horizontales o verticales.
     margen = int(w * .055)
     foto_size = int(min(w, h) * .36)
     foto_x, foto_y = margen, int(h * .29)
@@ -1694,9 +1630,21 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
 if st.session_state.admin_autenticado and st.session_state.es_admin:
 
     # ------------------------------------------------------------------
+    # BOTÓN DE EMERGENCIA PARA ABRIR MENÚ EN MÓVIL
+    # ------------------------------------------------------------------
+    if not st.session_state.get("sidebar_abierto", True):
+        if st.button("☰ Abrir menú", key="btn_abrir_menu_manual"):
+            st.session_state.sidebar_abierto = True
+            st.rerun()
+
+    # ------------------------------------------------------------------
     # SIDEBAR NAVIGATION
     # ------------------------------------------------------------------
     with st.sidebar:
+        if st.button("✖ Cerrar menú", key="btn_cerrar_menu_manual", use_container_width=True):
+            st.session_state.sidebar_abierto = False
+            st.rerun()
+
         st.markdown("""
         <div class="sidebar-brand">
           <div class="logo">🏛️</div>
@@ -1808,7 +1756,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 total_militantes = sum(x["Militantes"] for x in datos_resumen)
                 total_integrantes = sum(x["Total de integrantes"] for x in datos_resumen)
 
-                # Tarjetas de métricas con glow
                 c1, c2, c3, c4 = st.columns(4)
                 with c1:
                     st.markdown(f"""
@@ -1874,8 +1821,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
 
     if panel == "Bases" and sub == "Crear base":
         st.subheader("Crear una base o comando")
-        # Provincia y Distrito van FUERA de st.form: dentro de un formulario Streamlit no
-        # vuelve a ejecutar la app al cambiar la provincia, y el distrito se quedaba sin opciones.
         n_cb = st.session_state.get("admin_crear_base_n", 0)
         msg_cb = st.session_state.pop("mostrar_msg_crear_base", None)
         if msg_cb:
@@ -1885,7 +1830,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             provincia = st.selectbox("Provincia", ["Seleccionar provincia"] + PROVINCIAS,
                                      key=f"admin_cb_prov_{n_cb}")
             ds = sorted(DISTRITOS_PUNO.get(provincia, []))
-            # La clave incluye la provincia: al cambiarla, el distrito se reinicia con sus opciones.
             distrito = st.selectbox("Distrito", ["Seleccionar distrito"] + ds,
                                     key=f"admin_cb_dist_{n_cb}_{provincia}", disabled=not ds)
             direccion = st.text_input("Direcci\u00f3n de la base o comando",
@@ -1928,7 +1872,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 except Exception as e:
                     error_supabase("No se pudo crear la base.", e)
             if creada:
-                # Se cambia el contador para que el formulario aparezca limpio.
                 st.session_state["admin_crear_base_n"] = n_cb + 1
                 st.session_state["mostrar_msg_crear_base"] = "Base creada correctamente."
                 st.rerun()
@@ -2282,13 +2225,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 opciones = {f'{nombre_completo(f)} (DNI: {dni})': f for dni, f in unicos.items()}
                 seleccion = st.selectbox("Selecciona al integrante", list(opciones.keys()))
                 integrante = opciones[seleccion]
-                # Recupera las bases asociadas al mismo DNI; no publica DNI en el QR.
                 bases_info = datos_bases_por_dni(integrante["dni"])
                 principal = next((b for b in bases_info if b["id"] == integrante.get("base_id")),
                                  bases_info[0] if bases_info else {})
                 integrante_render = dict(integrante)
                 integrante_render["nombre_base"] = ", ".join(b["nombre_base"] for b in bases_info)
-                # Antes la provincia y el distrito salian vacios en la credencial.
                 integrante_render["provincia"] = principal.get("provincia") or ""
                 integrante_render["distrito"] = principal.get("distrito") or ""
                 plantillas = listar_plantillas()
@@ -2327,7 +2268,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     if not APP_PUBLIC_URL:
                         st.error("No se puede emitir un QR funcional hasta configurar APP_PUBLIC_URL.")
                     else:
-                        # Primero se generan las imagenes; solo se guarda en la base si todo salio bien.
                         cred_id = cred_actual["id"] if accion == "descargar" else str(uuid.uuid4())
                         token = token_credencial(integrante["dni"], cred_id)
                         url_qr = f"{APP_PUBLIC_URL}/?verificar={quote(token)}"
@@ -2703,8 +2643,6 @@ if st.session_state.base_id is not None:
                     else:
                         url_foto = None
                         if foto is not None:
-                            # La imagen se revalida y se recomprime (sin metadatos/GPS),
-                            # y el nombre del archivo ya no contiene el DNI.
                             datos_foto = procesar_foto(foto)
                             path = f"{base_id}/{uuid.uuid4().hex}.jpg"
                             url_foto = subir_archivo(BUCKET_FOTOS, path, datos_foto, "image/jpeg")
