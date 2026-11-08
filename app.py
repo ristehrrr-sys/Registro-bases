@@ -33,7 +33,7 @@ st.set_page_config(
     initial_sidebar_state="expanded", # Lo dejamos expandido
 )
 
-st.markdown("""
+# st.markdown("""
 <style>
 :root {
   --acc: #2FB067;
