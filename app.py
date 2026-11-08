@@ -390,6 +390,26 @@ hr { margin: 1.1rem 0 !important; border-color: var(--line) !important; opacity:
   .block-container { padding-left: .75rem !important; padding-right: .75rem !important; }
   .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button { min-height: 2.7rem; }
 }
+/* Botón del menú limpio y visible en computadora */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+    background-color: #1F883D !important; /* Fondo verde */
+    border-radius: 8px !important;
+    position: fixed !important;
+    top: 15px !important;
+    left: 15px !important;
+    z-index: 999999 !important;
+    padding: 8px !important;
+}
+
+/* Forzar que el icono de adentro sea blanco y visible */
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg {
+    fill: white !important;
+    color: white !important;
+    width: 24px !important;
+    height: 24px !important;
+}
 </style>
 """, unsafe_allow_html=True)
  
