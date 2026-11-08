@@ -52,7 +52,7 @@ st.markdown("""
 
 /* Ocultar solo lo decorativo para no romper el botón */
 /* Ocultar menús nativos, herramientas (Fork/GitHub) y decoraciones */
-#MainMenu, .stDeployButton, footer, [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] {
+#MainMenu, .stDeployButton, footer, [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"], {
   display: none !important;
 }
 
