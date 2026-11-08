@@ -418,7 +418,6 @@ button[kind="header"] svg {
     width: 24px !important;
     height: 24px !important;
 }
-}
 </style>
 """, unsafe_allow_html=True)
  
