@@ -48,13 +48,7 @@ st.markdown("""
   --red: #EF4444;
   --yellow: #F59E0B;
   --blue: #3B82F6;
-}
 
-/* Ocultar solo lo decorativo para no romper el botón */ 
-/* Ocultar menús nativos, herramientas (Fork/GitHub) y decoraciones */
-#MainMenu, .stDeployButton, footer, [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"], {
-  display: none !important;
-}
 # Botón nativo para abrir el menú
 st.sidebar.button("☰ Abrir Menú", key="btn_menu_emergencia")
 
