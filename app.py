@@ -48,70 +48,15 @@ st.markdown("""
   --red: #EF4444;
   --yellow: #F59E0B;
   --blue: #3B82F6;
-
-# Botón nativo para abrir el menú
-st.sidebar.button("☰ Abrir Menú", key="btn_menu_emergencia")
-
-/* Hacer la cabecera transparente para que no se vea la franja blanca */
-[data-testid="stHeader"] {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-/* Botón flotante del menú */
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="stSidebarCollapseButton"],
-[data-testid="collapsedControl"] {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  position: fixed !important;
-  top: 15px !important;
-  left: 15px !important;
-  z-index: 999999 !important;
-  background: #1F883D !important;
-  border-radius: 8px !important;
-  width: 40px !important;
-  height: 40px !important;
-  border: none !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-}
-/* Forzar el botón con las 3 rayitas y ocultar el ícono original */
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="collapsedControl"],
-button[kind="header"] {
-    display: flex !important;
-    visibility: visible !important;
-    position: fixed !important;
-    top: 15px !important;
-    left: 15px !important;
-    z-index: 999999 !important;
-    background-color: #1F883D !important; /* Fondo verde */
-    border-radius: 8px !important;
-    width: 45px !important;
-    height: 45px !important;
-    border: none !important;
 }
 
-/* Ocultar el dibujo de la flecha por defecto */
-[data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="collapsedControl"] svg,
-button[kind="header"] svg {
-    display: none !important;
+/* Ocultar elementos nativos de Streamlit */
+header, [data-testid="stHeader"], #MainMenu, .stDeployButton, footer,
+[data-testid="stToolbar"], [data-testid="stDecoration"] {
+  visibility: hidden !important;
+  display: none !important;
 }
 
-/* Poner las 3 rayitas blancas en su lugar */
-[data-testid="stSidebarCollapsedControl"]::before,
-[data-testid="collapsedControl"]::before,
-button[kind="header"]::before {
-    content: "☰" !important;
-    color: white !important;
-    font-size: 24px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 100% !important;
-    height: 100% !important;
-}
 /* Fondo general oscuro */
 .stApp, [data-testid="stAppViewContainer"] {
   background: var(--bg) !important;
@@ -398,34 +343,6 @@ hr { margin: 1.1rem 0 !important; border-color: var(--line) !important; opacity:
 @media (max-width: 640px) {
   .block-container { padding-left: .75rem !important; padding-right: .75rem !important; }
   .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button { min-height: 2.7rem; }
-}
-/* Botón del menú flotante (Fijo para celular y laptop) */
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="collapsedControl"],
-button[kind="header"] {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    position: fixed !important;
-    top: 15px !important;
-    left: 15px !important;
-    z-index: 999999 !important;
-    background-color: #1F883D !important; /* Fondo verde */
-    border-radius: 8px !important;
-    width: 45px !important;
-    height: 45px !important;
-    border: none !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-}
-
-/* Hacer que el dibujo de la flecha sea blanco y grande */
-[data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="collapsedControl"] svg,
-button[kind="header"] svg {
-    fill: white !important;
-    color: white !important;
-    width: 24px !important;
-    height: 24px !important;
 }
 </style>
 """, unsafe_allow_html=True)
