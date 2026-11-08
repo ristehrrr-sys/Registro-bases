@@ -74,6 +74,11 @@ button[kind="header"] {
   height: 40px !important;
   border: none !important;
 }
+/* Hacer la cabecera transparente para que no se vea la franja blanca */
+[data-testid="stHeader"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
 
 /* Fondo general oscuro */
 .stApp, [data-testid="stAppViewContainer"] {
