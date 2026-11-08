@@ -387,6 +387,7 @@ hr { margin: 1.1rem 0 !important; border-color: var(--line) !important; opacity:
 </style>
 """, unsafe_allow_html=True)
 
+
 # ---------------------------------------------------------------------
 # CONFIGURACION Y CONEXION
 # ---------------------------------------------------------------------
