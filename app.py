@@ -50,11 +50,39 @@ st.markdown("""
   --blue: #3B82F6;
 }
 
-/* Ocultar elementos nativos de Streamlit */
-header, [data-testid="stHeader"], #MainMenu, .stDeployButton, footer,
+/* Ocultar elementos nativos de Streamlit, PERO conservar el botón del sidebar */
+#MainMenu, .stDeployButton, footer,
 [data-testid="stToolbar"], [data-testid="stDecoration"] {
   visibility: hidden !important;
   display: none !important;
+}
+
+/* Header mínimo: solo para que aparezca el botón de abrir/cerrar sidebar */
+[data-testid="stHeader"] {
+  background: transparent !important;
+  height: 3.2rem !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+[data-testid="stHeader"] * {
+  color: #94A3B8 !important;
+}
+/* El botón de colapsar/expandir sidebar debe verse siempre */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+button[kind="header"] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #6BE79A !important;
+  background: rgba(47,176,103,.15) !important;
+  border: 1px solid rgba(47,176,103,.35) !important;
+  border-radius: 10px !important;
+  width: 2.4rem !important;
+  height: 2.4rem !important;
+}
+button[kind="header"]:hover {
+  background: rgba(47,176,103,.28) !important;
 }
 
 /* Fondo general oscuro */
@@ -318,17 +346,81 @@ hr { margin: 1.1rem 0 !important; border-color: var(--line) !important; opacity:
   border-radius: 10px !important;
   border: none !important;
 }
-[data-testid="stDataFrame"] {
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--line);
+
+/* ========== TABLAS / DATAFRAMES OSCUROS ========== */
+[data-testid="stDataFrame"],
+[data-testid="stDataFrame"] > div,
+[data-testid="stDataFrame"] [data-testid="stTable"],
+div[data-testid="stDataFrameResizable"] {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  border: 1px solid var(--line) !important;
+  background: var(--card) !important;
+}
+/* Cabecera de la tabla */
+[data-testid="stDataFrame"] thead th,
+[data-testid="stDataFrame"] th,
+[data-testid="stDataFrame"] [role="columnheader"] {
+  background: #1E293B !important;
+  color: #E2E8F0 !important;
+  font-weight: 700 !important;
+  border-bottom: 1px solid var(--line) !important;
+  border-right: 1px solid rgba(148,163,184,.08) !important;
+}
+/* Celdas del cuerpo */
+[data-testid="stDataFrame"] tbody td,
+[data-testid="stDataFrame"] td,
+[data-testid="stDataFrame"] [role="gridcell"] {
+  background: var(--card) !important;
+  color: #CBD5E1 !important;
+  border-bottom: 1px solid rgba(148,163,184,.08) !important;
+  border-right: 1px solid rgba(148,163,184,.05) !important;
+}
+/* Filas alternadas */
+[data-testid="stDataFrame"] tbody tr:nth-child(even) td,
+[data-testid="stDataFrame"] tbody tr:nth-child(even) [role="gridcell"] {
+  background: #151E2E !important;
+}
+/* Hover de fila */
+[data-testid="stDataFrame"] tbody tr:hover td,
+[data-testid="stDataFrame"] tbody tr:hover [role="gridcell"] {
+  background: #1E2A3D !important;
+}
+/* Contenedor interno de Glide/Dataframe */
+[data-testid="stDataFrame"] canvas,
+[data-testid="stDataFrame"] .dvn-scroller,
+[data-testid="stDataFrame"] [class*="glide"] {
+  background: var(--card) !important;
+}
+/* data_editor también */
+[data-testid="stDataFrame"] [data-testid="data-grid-canvas"],
+[data-testid="stDataEditor"] {
+  background: var(--card) !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--line) !important;
 }
 
-/* Inputs */
-[data-baseweb="input"], [data-baseweb="textarea"], [data-baseweb="select"] > div {
+/* ========== INPUTS Y SELECTBOX OSCUROS ========== */
+[data-baseweb="input"],
+[data-baseweb="textarea"],
+[data-baseweb="select"] > div,
+[data-baseweb="base-input"] {
   border-radius: 9px !important;
-  background: var(--bg2) !important;
+  background: #151E2E !important;
   border-color: var(--line) !important;
+  color: #E2E8F0 !important;
+}
+[data-baseweb="input"] input,
+[data-baseweb="textarea"] textarea,
+[data-baseweb="select"] span,
+[data-baseweb="select"] div {
+  color: #E2E8F0 !important;
+  background: transparent !important;
+}
+/* Placeholder */
+[data-baseweb="input"] input::placeholder,
+[data-baseweb="textarea"] textarea::placeholder {
+  color: #64748B !important;
 }
 [data-testid="stImage"] img { border-radius: 12px; }
 
@@ -337,7 +429,37 @@ hr { margin: 1.1rem 0 !important; border-color: var(--line) !important; opacity:
   min-height: 44px !important;
   border: 1px solid var(--line) !important;
   border-radius: 10px !important;
-  background: var(--card) !important;
+  background: #151E2E !important;
+  color: #E2E8F0 !important;
+}
+/* Menú desplegable del select */
+[data-baseweb="popover"],
+[data-baseweb="menu"],
+ul[role="listbox"] {
+  background: #1A2332 !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 10px !important;
+}
+ul[role="listbox"] li,
+[role="option"] {
+  color: #E2E8F0 !important;
+  background: transparent !important;
+}
+ul[role="listbox"] li:hover,
+[role="option"]:hover,
+[role="option"][aria-selected="true"] {
+  background: rgba(47,176,103,.18) !important;
+  color: #6BE79A !important;
+}
+
+/* Warning / info boxes más suaves en oscuro */
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] {
+  color: #E2E8F0 !important;
+}
+div[data-baseweb="notification"],
+.stAlert {
+  background: #1E293B !important;
+  border: 1px solid var(--line) !important;
 }
 
 @media (max-width: 640px) {
