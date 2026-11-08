@@ -1,3 +1,4 @@
+
 import streamlit as st
 from supabase import create_client
 import hashlib
@@ -57,39 +58,54 @@ st.markdown("""
   color-scheme: light;
 }
 
-/* Ocultar Share, lápiz, estrella, GitHub y menús nativos */
+/* Ocultar SOLO Share, lápiz, estrella, GitHub y menú ⋮.
+   NO se oculta stToolbar ni stAppToolbar: pueden contener la flechita. */
+[data-testid="stToolbarActions"],
+[data-testid="stMainMenu"],
+[data-testid="stAppDeployButton"],
+[data-testid="stHeaderActionElements"],
+[data-testid="stStatusWidget"],
+[data-testid="stDecoration"],
+.stDeployButton,
 #MainMenu,
 footer,
-.stDeployButton,
-[data-testid="stToolbar"],
-[data-testid="stToolbarActions"],
-[data-testid="stAppToolbar"],
-[data-testid="stAppDeployButton"],
-[data-testid="stMainMenu"],
-[data-testid="stDecoration"],
-[data-testid="stStatusWidget"],
-[data-testid="stHeaderActionElements"],
 [class*="viewerBadge"],
 [class*="stToolbarActions"],
-a[href*="github.com"][target="_blank"] {
+header a[href*="github.com"] {
   display: none !important;
-  visibility: hidden !important;
 }
 
-/* Cabecera transparente (se conserva para la flechita del menú) */
-[data-testid="stHeader"] {
+/* Cabecera y barra transparentes, sin tocar su posición */
+[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stAppToolbar"] {
   background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
 }
 
-/* Flechita del menú siempre visible */
+/* Flechita del menú: todas las variantes según versión de Streamlit */
+[data-testid="stExpandSidebarButton"],
 [data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
 [data-testid="stSidebarCollapseButton"] {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
+}
+[data-testid="stExpandSidebarButton"] svg,
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg,
+[data-testid="stSidebarCollapseButton"] svg {
+  color: #117C7A !important;
+  fill: #117C7A !important;
+}
+[data-testid="stExpandSidebarButton"]:hover,
+[data-testid="stSidebarCollapsedControl"]:hover,
+[data-testid="collapsedControl"]:hover {
+  background: rgba(32,184,176,.14) !important;
+  border-radius: 8px !important;
 }
 
 /* Fondo general */
@@ -474,7 +490,6 @@ hr {
 }
 </style>
 """, unsafe_allow_html=True)
-
 
 # ---------------------------------------------------------------------
 # CONFIGURACION Y CONEXION
