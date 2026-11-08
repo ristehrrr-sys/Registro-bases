@@ -50,11 +50,29 @@ st.markdown("""
   --blue: #3B82F6;
 }
 
-/* Ocultar elementos nativos de Streamlit */
-header, [data-testid="stHeader"], #MainMenu, .stDeployButton, footer,
-[data-testid="stToolbar"], [data-testid="stDecoration"] {
-  visibility: hidden !important;
+/* Ocultar solo lo decorativo para no romper el botón */
+#MainMenu, .stDeployButton, footer, [data-testid="stDecoration"] {
   display: none !important;
+}
+
+/* Forzar el botón del menú flotante y visible */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"],
+button[kind="header"] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  top: 15px !important;
+  left: 15px !important;
+  z-index: 999999 !important;
+  background: #1F883D !important;
+  color: white !important;
+  border-radius: 8px !important;
+  width: 40px !important;
+  height: 40px !important;
+  border: none !important;
 }
 
 /* Fondo general oscuro */
