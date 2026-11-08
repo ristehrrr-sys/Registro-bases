@@ -83,7 +83,8 @@ st.markdown("""
 /* Ocultar el ícono SVG por defecto (para que no salga el logo de GitHub) */
 [data-testid="stSidebarCollapsedControl"] svg,
 [data-testid="stSidebarCollapseButton"] svg,
-[data-testid="collapsedControl"] svg {
+[data-testid="collapsedControl"] svg,
+button[kind=¨header¨[ svg {
   display: none !important;
 }
 
