@@ -55,11 +55,16 @@ st.markdown("""
   display: none !important;
 }
 
-/* Forzar el botón del menú flotante y visible */
+
+/* Hacer la cabecera transparente para que no se vea la franja blanca */
+[data-testid="stHeader"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+/* Botón flotante del menú */
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="stSidebarCollapseButton"],
-[data-testid="collapsedControl"],
-button[kind="header"] {
+[data-testid="collapsedControl"] {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -68,18 +73,34 @@ button[kind="header"] {
   left: 15px !important;
   z-index: 999999 !important;
   background: #1F883D !important;
-  color: white !important;
   border-radius: 8px !important;
   width: 40px !important;
   height: 40px !important;
   border: none !important;
-}
-/* Hacer la cabecera transparente para que no se vea la franja blanca */
-[data-testid="stHeader"] {
-  background: transparent !important;
-  background-color: transparent !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
 }
 
+/* Ocultar el ícono SVG por defecto (para que no salga el logo de GitHub) */
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="stSidebarCollapseButton"] svg,
+[data-testid="collapsedControl"] svg {
+  display: none !important;
+}
+
+/* Poner el ícono de las 3 rayitas (☰) en blanco */
+[data-testid="stSidebarCollapsedControl"]::before,
+[data-testid="stSidebarCollapseButton"]::before,
+[data-testid="collapsedControl"]::before {
+  content: "☰" !important;
+  color: white !important;
+  font-size: 24px !important;
+  font-weight: bold !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+}
 /* Fondo general oscuro */
 .stApp, [data-testid="stAppViewContainer"] {
   background: var(--bg) !important;
