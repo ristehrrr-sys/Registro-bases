@@ -30,7 +30,7 @@ st.set_page_config(
     page_title="Registro de Bases y Comandos",
     page_icon="\U0001f5f3\ufe0f",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto", # <-- MODIFICADO: 'expanded' a 'auto'
 )
 
 st.markdown("""
@@ -57,14 +57,14 @@ st.markdown("""
   display: none !important;
 }
 
-/* Header transparente pero sin forzar altura ni colores de TODOS los hijos */
+/* MODIFICADO: Header transparente sin forzar altura */
 [data-testid="stHeader"] {
   background: transparent !important;
   border-bottom: none !important;
   box-shadow: none !important;
 }
 
-/* Forzar el botón del sidebar a ser visible y clicable */
+/* MODIFICADO: Forzar el botón del sidebar a ser visible, flotante y clicable */
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapseButton"],
@@ -72,19 +72,23 @@ button[kind="header"] {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
+  position: fixed !important;
+  top: 15px !important;
+  left: 15px !important;
+  z-index: 999999 !important;
   color: #6BE79A !important;
   background: rgba(47,176,103,.15) !important;
   border: 1px solid rgba(47,176,103,.35) !important;
   border-radius: 10px !important;
   width: 2.4rem !important;
   height: 2.4rem !important;
-  z-index: 9999 !important;
 }
 button[kind="header"]:hover,
 [data-testid="stSidebarCollapsedControl"]:hover,
 [data-testid="stSidebarCollapseButton"]:hover {
   background: rgba(47,176,103,.28) !important;
 }
+
 /* Fondo general oscuro */
 .stApp, [data-testid="stAppViewContainer"] {
   background: var(--bg) !important;
@@ -2742,4 +2746,4 @@ with st.expander("Aviso de privacidad"):
         "sobre la finalidad, qui\u00e9n accede, cu\u00e1nto tiempo se conservar\u00e1n y c\u00f3mo solicitar "
         "correcci\u00f3n o eliminaci\u00f3n. No registres a nadie sin autorizaci\u00f3n documentada. "
         "La consulta p\u00fablica del QR muestra \u00fanicamente nombre, cargo, bases y fotograf\u00eda, y nunca el DNI ni el tel\u00e9fono."
-    ) 
+    )
