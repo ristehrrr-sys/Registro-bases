@@ -390,25 +390,34 @@ hr { margin: 1.1rem 0 !important; border-color: var(--line) !important; opacity:
   .block-container { padding-left: .75rem !important; padding-right: .75rem !important; }
   .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button { min-height: 2.7rem; }
 }
-/* Botón del menú limpio y visible en computadora */
+/* Botón del menú flotante (Fijo para celular y laptop) */
 [data-testid="stSidebarCollapsedControl"],
-[data-testid="collapsedControl"] {
-    background-color: #1F883D !important; /* Fondo verde */
-    border-radius: 8px !important;
+[data-testid="collapsedControl"],
+button[kind="header"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     position: fixed !important;
     top: 15px !important;
     left: 15px !important;
     z-index: 999999 !important;
-    padding: 8px !important;
+    background-color: #1F883D !important; /* Fondo verde */
+    border-radius: 8px !important;
+    width: 45px !important;
+    height: 45px !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
 }
 
-/* Forzar que el icono de adentro sea blanco y visible */
+/* Hacer que el dibujo de la flecha sea blanco y grande */
 [data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="collapsedControl"] svg {
+[data-testid="collapsedControl"] svg,
+button[kind="header"] svg {
     fill: white !important;
     color: white !important;
     width: 24px !important;
     height: 24px !important;
+}
 }
 </style>
 """, unsafe_allow_html=True)
