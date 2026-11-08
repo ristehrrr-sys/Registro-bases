@@ -1,4 +1,3 @@
-
 import streamlit as st
 from supabase import create_client
 import hashlib
@@ -545,35 +544,36 @@ hr {
 }
 
 /* =========================================================
-   OCULTAR ACCIONES SUPERIORES: SHARE, ESTRELLA, LÁPIZ, GITHUB
+   OCULTAR ACCIONES DEL ENCABEZADO
+   SIN OCULTAR LA BARRA COMPLETA NI EL MENÚ LATERAL
    ========================================================= */
 
-/* Ocultar barra de herramientas */
-[data-testid="stToolbar"] {
-  display: none !important;
-  visibility: hidden !important;
-}
-
-/* Ocultar acciones del encabezado */
 [data-testid="stHeaderActionElements"] {
-  display: none !important;
+    display: none !important;
 }
 
-/* Mantener visible el encabezado y los controles del sidebar */
+/* CONSERVAR EL ENCABEZADO */
 [data-testid="stHeader"] {
-  background: transparent !important;
-  box-shadow: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
-/* Conservar el botón nativo para abrir/cerrar el menú lateral */
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="collapsedControl"] {
-  display: flex !important;
+/* CONSERVAR EL BOTÓN PARA ABRIR EL MENÚ LATERAL */
+[data-testid="stSidebarCollapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+[data-testid="stSidebarCollapseButton"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 </style>
 """, unsafe_allow_html=True)
-
 # ---------------------------------------------------------------------
 # CONFIGURACION Y CONEXION
 # ---------------------------------------------------------------------
