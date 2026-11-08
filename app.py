@@ -84,7 +84,7 @@ st.markdown("""
 [data-testid="stSidebarCollapsedControl"] svg,
 [data-testid="stSidebarCollapseButton"] svg,
 [data-testid="collapsedControl"] svg,
-button[kind=¨header¨[ svg {
+button[kind=¨header¨] svg {
   display: none !important;
 }
 
