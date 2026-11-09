@@ -1,4 +1,3 @@
-
 import streamlit as st
 from supabase import create_client
 import hashlib
@@ -488,6 +487,24 @@ hr {
     font-size: 1.3rem;
   }
 }
+
+/* GRAFICAS VERTICALES (estilo Supabase) */
+.sb-card { border:1px solid var(--line); border-radius:12px; background:var(--card);
+  padding:14px 16px 10px; margin:6px 0 16px; box-shadow:0 3px 12px rgba(38,59,64,.035); }
+.sb-title { font:600 .68rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  letter-spacing:.08em; color:#6b7280; text-transform:uppercase; }
+.sb-total { font-size:1.6rem; font-weight:600; color:#263B40; line-height:1.2; margin-bottom:6px; }
+.sb-scroll { overflow-x:auto; padding-bottom:4px; }
+.sb-plot { display:flex; align-items:flex-end; gap:14px; height:150px; min-width:100%;
+  width:max-content; border-bottom:1px solid var(--line); padding:0 6px; }
+.sb-col { display:flex; flex-direction:column; justify-content:flex-end; align-items:center;
+  height:100%; min-width:46px; flex:1 1 46px; }
+.sb-val { font:.7rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#6b7280; margin-bottom:3px; }
+.sb-bar { width:10px; min-height:2px; border-radius:2px 2px 0 0; transition:height .4s ease, opacity .2s; }
+.sb-col:hover .sb-bar { opacity:.75; }
+.sb-labels { display:flex; gap:14px; width:max-content; min-width:100%; padding:6px 6px 0; }
+.sb-lab { min-width:46px; flex:1 1 46px; text-align:center; font:.66rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:90px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -880,6 +897,25 @@ def botones_lista(base, miembros, clave):
  
 logger = logging.getLogger("registro_bases")
  
+def grafica_supabase(titulo, items, color="#3ecf8e"):
+    """Grafica de barras verticales delgadas (estilo Supabase). items = [(etiqueta, valor), ...]"""
+    total = sum(v for _, v in items)
+    mx = max([v for _, v in items] or [0])
+    cols, labs = [], []
+    for etiqueta, valor in items:
+        alto = (valor / mx * 100) if mx else 0
+        nombre = _html.escape(str(etiqueta))
+        cols.append(
+            f'<div class="sb-col" title="{nombre}: {valor}"><div class="sb-val">{valor}</div>'
+            f'<div class="sb-bar" style="height:{alto:.2f}%;background:{color}"></div></div>')
+        labs.append(f'<div class="sb-lab" title="{nombre}">{nombre}</div>')
+    st.markdown(
+        f'<div class="sb-card"><div class="sb-title">{_html.escape(titulo)}</div>'
+        f'<div class="sb-total">{total}</div><div class="sb-scroll">'
+        f'<div class="sb-plot">{"".join(cols)}</div><div class="sb-labels">{"".join(labs)}</div>'
+        f'</div></div>', unsafe_allow_html=True)
+
+
 def error_supabase(mensaje, error=None):
     ref = uuid.uuid4().hex[:8]
     logger.error("[%s] %s | %r", ref, mensaje, error)
@@ -1379,24 +1415,69 @@ def guardar_diseno(plantilla_id, diseno):
             subir_archivo(BUCKET_PLANTILLAS, ruta, contenido, "text/plain")
     cargar_diseno.clear()
  
-def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=True):
-    # Escribe sobre una linea: reduce la letra si no cabe y, en ultimo caso, recorta con "...".
-    t = tam
-    fuente = cargar_fuente(t, negrita)
-    minimo = max(10, int(tam * 0.55))
-    while t > minimo and draw.textbbox((0, 0), texto, font=fuente)[2] > ancho_max:
-        t -= 1
+def partir_texto(draw, texto, fuente, ancho_max):
+    # Divide por palabras; si una palabra sola no cabe, la corta por letras.
+    def mide(t):
+        return draw.textbbox((0, 0), t, font=fuente)[2]
+    lineas, actual = [], ""
+    for palabra in str(texto).split():
+        while mide(palabra) > ancho_max and len(palabra) > 1:
+            if actual:
+                lineas.append(actual)
+                actual = ""
+            corte = len(palabra) - 1
+            while corte > 1 and mide(palabra[:corte]) > ancho_max:
+                corte -= 1
+            lineas.append(palabra[:corte])
+            palabra = palabra[corte:]
+        prueba = (actual + " " + palabra).strip()
+        if mide(prueba) <= ancho_max:
+            actual = prueba
+        else:
+            if actual:
+                lineas.append(actual)
+            actual = palabra
+    if actual:
+        lineas.append(actual)
+    return lineas or [""]
+
+def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=True,
+                      ajuste="envolver", max_lineas=3):
+    # Devuelve los pixeles extra que ocupo hacia abajo (0 si cupo en una sola linea).
+    # ajuste="envolver" (por defecto): la letra conserva SIEMPRE su tamano; si el texto es
+    #   largo pasa a la linea siguiente (maximo max_lineas; lo que sobre termina en "...").
+    # ajuste="reducir": comportamiento anterior (achica la letra hasta el 55 %).
+    if ajuste == "reducir":
+        t = tam
         fuente = cargar_fuente(t, negrita)
-    if draw.textbbox((0, 0), texto, font=fuente)[2] > ancho_max:
-        while len(texto) > 1 and draw.textbbox((0, 0), texto + "\u2026", font=fuente)[2] > ancho_max:
-            texto = texto[:-1]
-        texto = texto.rstrip() + "\u2026"
-    try:
-        draw.text((x, y_base), texto, fill=color, font=fuente, anchor="ls")
-    except Exception:
-        alto = draw.textbbox((0, 0), texto, font=fuente)[3]
-        draw.text((x, y_base - alto), texto, fill=color, font=fuente)
- 
+        minimo = max(10, int(tam * 0.55))
+        while t > minimo and draw.textbbox((0, 0), texto, font=fuente)[2] > ancho_max:
+            t -= 1
+            fuente = cargar_fuente(t, negrita)
+        lineas = [texto]
+        if draw.textbbox((0, 0), texto, font=fuente)[2] > ancho_max:
+            while len(texto) > 1 and draw.textbbox((0, 0), texto + "\u2026", font=fuente)[2] > ancho_max:
+                texto = texto[:-1]
+            lineas = [texto.rstrip() + "\u2026"]
+    else:
+        fuente = cargar_fuente(tam, negrita)
+        lineas = partir_texto(draw, texto, fuente, ancho_max)
+        if len(lineas) > max_lineas:
+            lineas = lineas[:max_lineas]
+            ultima = lineas[-1]
+            while len(ultima) > 1 and draw.textbbox((0, 0), ultima + "\u2026", font=fuente)[2] > ancho_max:
+                ultima = ultima[:-1]
+            lineas[-1] = ultima.rstrip() + "\u2026"
+    interlinea = int(tam * 1.15)
+    for n, linea in enumerate(lineas):
+        y = y_base + n * interlinea
+        try:
+            draw.text((x, y), linea, fill=color, font=fuente, anchor="ls")
+        except Exception:
+            alto = draw.textbbox((0, 0), linea, font=fuente)[3]
+            draw.text((x, y - alto), linea, fill=color, font=fuente)
+    return (len(lineas) - 1) * interlinea
+
 def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
     w, h = lienzo.size
     draw = ImageDraw.Draw(lienzo)
@@ -1432,11 +1513,17 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
         "cargo": integrante.get("cargo") or "Sin cargo", "base": integrante.get("nombre_base"),
         "provincia": integrante.get("provincia"), "distrito": integrante.get("distrito"),
     }
+    ajuste = t.get("ajuste", "envolver")  # "envolver" (letra fija) o "reducir" (anterior)
+    desplazamiento = {}  # px que bajan los campos de una misma columna tras un texto largo
     for c in t.get("campos", []):
         texto = str(valores.get(c.get("campo")) or "").strip()
         if texto:
-            escribir_en_linea(draw, texto, int(c["x"] * w), int(c["y"] * h) - margen,
-                              max(10, int(c["ancho"] * w)), tam, color, t.get("negrita", True))
+            columna = round(float(c["x"]), 3)
+            y_base = min(int(c["y"] * h) - margen + desplazamiento.get(columna, 0), h - 4)
+            extra = escribir_en_linea(draw, texto, int(c["x"] * w), y_base,
+                                      max(10, int(c["ancho"] * w)), tam, color,
+                                      t.get("negrita", True), ajuste)
+            desplazamiento[columna] = desplazamiento.get(columna, 0) + extra
     return lienzo.convert("RGB")
  
 def foto_demo():
@@ -1619,6 +1706,26 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
 # VERIFICACION PUBLICA DEL QR
 # ---------------------------------------------------------------------
 st.markdown('<div class="top"><div class="av">\U0001f5f3\ufe0f</div><div class="tt"><div class="n">Registro de Bases y Comandos</div><div class="s">Gesti\u00f3n de bases, integrantes y credenciales verificables</div></div></div>', unsafe_allow_html=True)
+@st.cache_data(ttl=600, show_spinner=False)
+def credencial_publica_png(plantilla_id, persona_json, bases_json, url_qr):
+    # Credencial frontal para la consulta publica del QR. Usa la plantilla con la que se emitio
+    # y OCULTA el DNI (solo se ven los ultimos 3 digitos), igual que el resto de la consulta publica.
+    filas = (supabase.table("plantillas_credenciales")
+             .select("id,nombre,frontal_path,posterior_path")
+             .eq("id", plantilla_id).limit(1).execute().data or [])
+    if not filas:
+        return None
+    persona = json.loads(persona_json)
+    bases = json.loads(bases_json)
+    principal = next((b for b in bases if b.get("id") == persona.get("base_id")), bases[0] if bases else {})
+    dni = str(persona.get("dni") or "")
+    datos = dict(persona,
+                 dni=("*" * max(0, len(dni) - 3)) + dni[-3:],
+                 nombre_base=", ".join(b["nombre_base"] for b in bases),
+                 provincia=principal.get("provincia") or "",
+                 distrito=principal.get("distrito") or "")
+    return _png(componer_credencial(datos, filas[0], url_qr, "frontal"))
+
 token_qr = st.query_params.get("verificar")
 if token_qr:
     st.subheader("Verificaci\u00f3n de credencial")
@@ -1646,6 +1753,17 @@ if token_qr:
                 st.write(f"**Integrante:** {nombre_completo(persona)}")
                 st.write(f"**Cargo:** {persona.get('cargo') or 'Sin cargo'}")
                 st.write(f"**Bases:** {', '.join(nombres_bases) if nombres_bases else 'No especificadas'}")
+                if cred.get("plantilla_id") and APP_PUBLIC_URL:
+                    try:
+                        png = credencial_publica_png(
+                            cred["plantilla_id"],
+                            json.dumps(persona, ensure_ascii=False, sort_keys=True),
+                            json.dumps(datos_bases_por_dni(persona["dni"]), ensure_ascii=False, sort_keys=True),
+                            f"{APP_PUBLIC_URL}/?verificar={quote(str(token_qr))}")
+                        if png:
+                            st.image(png, caption="Credencial", use_container_width=True)
+                    except Exception:
+                        logger.exception("No se pudo mostrar la credencial en la verificacion publica")
                 st.caption(f"Emitida el {str(cred.get('emitida_en', ''))[:10]}. "
                            "Por privacidad, esta consulta p\u00fablica no muestra el DNI ni el tel\u00e9fono.")
     except Exception as e:
@@ -1868,22 +1986,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown("### Militantes por base")
-                max_m = max([x["Militantes"] for x in datos_resumen] or [0])
-                for item in datos_resumen:
-                    porcentaje = (item["Militantes"] / max_m * 100) if max_m else 0
-                    st.markdown(
-                        f'<div class="bar-row"><div class="bar-header"><b>{_html.escape(str(item["Base"]))}</b><b>{item["Militantes"]}</b></div>'
-                        f'<div class="bar-track"><div class="bar-fill red" style="width:{porcentaje:.2f}%"></div></div></div>',
-                        unsafe_allow_html=True)
+                grafica_supabase("Militantes por base",
+                                 [(x["Base"], x["Militantes"]) for x in datos_resumen], "#f59e0b")
 
                 st.markdown("### Total de integrantes por base")
-                max_t = max([x["Total de integrantes"] for x in datos_resumen] or [0])
-                for item in datos_resumen:
-                    porcentaje = (item["Total de integrantes"] / max_t * 100) if max_t else 0
-                    st.markdown(
-                        f'<div class="bar-row"><div class="bar-header"><b>{_html.escape(str(item["Base"]))}</b><b>{item["Total de integrantes"]}</b></div>'
-                        f'<div class="bar-track"><div class="bar-fill yellow" style="width:{porcentaje:.2f}%"></div></div></div>',
-                        unsafe_allow_html=True)
+                grafica_supabase("Total de integrantes por base",
+                                 [(x["Base"], x["Total de integrantes"]) for x in datos_resumen], "#3ecf8e")
 
                 st.markdown("### Detalle por base")
                 st.dataframe(pd.DataFrame(datos_resumen), use_container_width=True, hide_index=True)
@@ -2633,7 +2741,9 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             frontal = st.file_uploader("Imagen frontal (PNG o JPG)", type=["png", "jpg", "jpeg"])
             posterior = st.file_uploader("Imagen posterior (opcional)", type=["png", "jpg", "jpeg"])
             distribucion = st.selectbox("Distribuci\u00f3n de datos, foto y QR",
-                                        [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()), index=1)
+                                        [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()), index=0,
+                                        help="Usa \u00abAutom\u00e1tico\u00bb si tu dise\u00f1o es distinto al de Puno. "
+                                             "Despu\u00e9s podr\u00e1s ajustarlo con vista previa.")
             activar_al_guardar = st.checkbox("Activar esta plantilla al guardar", value=True)
             guardar_plantilla_btn = st.form_submit_button("Guardar plantilla")
         if guardar_plantilla_btn:
@@ -2648,7 +2758,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.warning("La imagen es peque\u00f1a. Se recomienda al menos 1011 \u00d7 638 p\u00edxeles.")
                     guardar_plantilla(nombre_plantilla, frontal, posterior, activar_al_guardar,
                                       copy.deepcopy(DISENOS_PREDEFINIDOS.get(distribucion) or {"modo": "auto"}))
-                    st.success("Plantilla guardada correctamente.")
+                    aviso = "Plantilla guardada correctamente."
+                    if distribucion != DISENO_AUTO:
+                        aviso += (" Revisa la vista previa de la distribuci\u00f3n: si tu dise\u00f1o es distinto al "
+                                  "de Puno, los datos, la foto y el QR pueden no coincidir.")
+                    st.session_state["mostrar_msg_plantilla"] = aviso
                     st.rerun()
                 except Exception as e:
                     error_supabase("No se pudo guardar la plantilla. Revisa el bucket y la tabla de Supabase.", e)
