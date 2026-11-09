@@ -2031,7 +2031,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.warning("Completa el nombre, la provincia, el distrito y la direcci\u00f3n.")
             elif len(direccion.strip()) < 5:
                 st.warning("Escribe una direcci\u00f3n m\u00e1s completa para poder ubicar la base.")
-            elif not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", usuario):
+            elif not re.fullmatch(r"[A-Za-z0-9_.\-\u00F1\u00D1]{3,40}", usuario):
                 st.warning("El usuario debe tener de 3 a 40 caracteres v\u00e1lidos.")
             elif not (10 <= len(password) <= 64 and re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
                 st.warning("La contrase\u00f1a debe tener de 10 a 64 caracteres, con al menos una letra y un n\u00famero.")
