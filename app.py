@@ -528,6 +528,8 @@ except Exception:
 BUCKET_FOTOS = "fotos_integrantes"
 BUCKET_PLANTILLAS = "plantillas_credenciales"
 APP_PUBLIC_URL = st.secrets.get("APP_PUBLIC_URL", "").strip().rstrip("/")
+# Consulta publica del QR: False = solo se ve la credencial. True = tambien foto, nombre, cargo y bases arriba.
+MOSTRAR_DATOS_EN_VERIFICACION = False
  
 # ---------------------------------------------------------------------
 # GEOGRAFIA PUNO
@@ -1442,12 +1444,21 @@ def partir_texto(draw, texto, fuente, ancho_max):
     return lineas or [""]
 
 def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=True,
-                      ajuste="envolver", max_lineas=3):
+                      ajuste="cortar", max_lineas=3):
     # Devuelve los pixeles extra que ocupo hacia abajo (0 si cupo en una sola linea).
-    # ajuste="envolver" (por defecto): la letra conserva SIEMPRE su tamano; si el texto es
-    #   largo pasa a la linea siguiente (maximo max_lineas; lo que sobre termina en "...").
-    # ajuste="reducir": comportamiento anterior (achica la letra hasta el 55 %).
-    if ajuste == "reducir":
+    # ajuste="cortar" (por defecto): una sola linea y la letra conserva SIEMPRE su tamano;
+    #   si el texto llega al final de la linea se corta y termina en "...".
+    # ajuste="envolver": la letra conserva su tamano y el texto pasa a la linea siguiente
+    #   (maximo max_lineas; lo que sobre termina en "..."). Los campos de abajo bajan.
+    # ajuste="reducir": achica la letra hasta el 55 %.
+    if ajuste == "cortar":
+        fuente = cargar_fuente(tam, negrita)
+        if draw.textbbox((0, 0), texto, font=fuente)[2] > ancho_max:
+            while len(texto) > 1 and draw.textbbox((0, 0), texto + "\u2026", font=fuente)[2] > ancho_max:
+                texto = texto[:-1]
+            texto = texto.rstrip() + "\u2026"
+        lineas = [texto]
+    elif ajuste == "reducir":
         t = tam
         fuente = cargar_fuente(t, negrita)
         minimo = max(10, int(tam * 0.55))
@@ -1513,7 +1524,7 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
         "cargo": integrante.get("cargo") or "Sin cargo", "base": integrante.get("nombre_base"),
         "provincia": integrante.get("provincia"), "distrito": integrante.get("distrito"),
     }
-    ajuste = t.get("ajuste", "envolver")  # "envolver" (letra fija) o "reducir" (anterior)
+    ajuste = t.get("ajuste", "cortar")  # "cortar" (una linea con ...), "envolver" o "reducir"
     desplazamiento = {}  # px que bajan los campos de una misma columna tras un texto largo
     for c in t.get("campos", []):
         texto = str(valores.get(c.get("campo")) or "").strip()
@@ -1745,14 +1756,7 @@ if token_qr:
                 persona = fila[0]
                 nombres_bases = [b["nombre_base"] for b in datos_bases_por_dni(persona["dni"])]
                 st.success("Credencial vigente")
-                if persona.get("foto_url"):
-                    try:
-                        st.image(persona["foto_url"], width=220, caption="Fotograf\u00eda registrada")
-                    except Exception:
-                        pass
-                st.write(f"**Integrante:** {nombre_completo(persona)}")
-                st.write(f"**Cargo:** {persona.get('cargo') or 'Sin cargo'}")
-                st.write(f"**Bases:** {', '.join(nombres_bases) if nombres_bases else 'No especificadas'}")
+                png = None
                 if cred.get("plantilla_id") and APP_PUBLIC_URL:
                     try:
                         png = credencial_publica_png(
@@ -1760,10 +1764,22 @@ if token_qr:
                             json.dumps(persona, ensure_ascii=False, sort_keys=True),
                             json.dumps(datos_bases_por_dni(persona["dni"]), ensure_ascii=False, sort_keys=True),
                             f"{APP_PUBLIC_URL}/?verificar={quote(str(token_qr))}")
-                        if png:
-                            st.image(png, caption="Credencial", use_container_width=True)
                     except Exception:
                         logger.exception("No se pudo mostrar la credencial en la verificacion publica")
+                # Datos en texto (foto, nombre, cargo y bases): DESACTIVADOS por ahora porque la
+                # credencial ya los muestra. Para reactivarlos pon MOSTRAR_DATOS_EN_VERIFICACION = True
+                # en config. Si la credencial no se pudo generar, se muestran como respaldo.
+                if MOSTRAR_DATOS_EN_VERIFICACION or not png:
+                    if persona.get("foto_url"):
+                        try:
+                            st.image(persona["foto_url"], width=220, caption="Fotograf\u00eda registrada")
+                        except Exception:
+                            pass
+                    st.write(f"**Integrante:** {nombre_completo(persona)}")
+                    st.write(f"**Cargo:** {persona.get('cargo') or 'Sin cargo'}")
+                    st.write(f"**Bases:** {', '.join(nombres_bases) if nombres_bases else 'No especificadas'}")
+                if png:
+                    st.image(png, caption="Credencial", use_container_width=True)
                 st.caption(f"Emitida el {str(cred.get('emitida_en', ''))[:10]}. "
                            "Por privacidad, esta consulta p\u00fablica no muestra el DNI ni el tel\u00e9fono.")
     except Exception as e:
@@ -2878,4 +2894,4 @@ with st.expander("Aviso de privacidad"):
         "sobre la finalidad, qui\u00e9n accede, cu\u00e1nto tiempo se conservar\u00e1n y c\u00f3mo solicitar "
         "correcci\u00f3n o eliminaci\u00f3n. No registres a nadie sin autorizaci\u00f3n documentada. "
         "La consulta p\u00fablica del QR muestra \u00fanicamente nombre, cargo, bases y fotograf\u00eda, y nunca el DNI ni el tel\u00e9fono."
-    ) 
+    )
