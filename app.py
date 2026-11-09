@@ -1388,6 +1388,18 @@ DISENOS_PREDEFINIDOS = {
     },
 }
  
+# Nombres cortos SOLO para imprimir en la credencial (opcional). Clave: nombre de la base en
+# MAYUSCULAS, tal como esta registrado; valor: el texto que saldra impreso. En el sistema
+# la base conserva su nombre completo. Ejemplo (quita el "#" para activarlo):
+NOMBRES_CORTOS_CREDENCIAL = {
+    # "SECRETARIA DE SERIGRAFÍA FASE DE TONCONI": "SERIGRAFÍA TONCONI",
+    # "IMAGEN INSTITUCIONAL, PROTOCOLO Y REDES SOCIALES": "IMAGEN Y REDES SOCIALES",
+}
+
+def nombre_base_credencial(nombre):
+    texto = str(nombre or "").strip()
+    return NOMBRES_CORTOS_CREDENCIAL.get(" ".join(texto.upper().split()), texto)
+
 # Si una plantilla con imagen no tiene distribucion guardada, se usa esta.
 DISENO_POR_DEFECTO = "Marcos y l\u00edneas (ejemplo Puno)"
  
@@ -1444,13 +1456,48 @@ def partir_texto(draw, texto, fuente, ancho_max):
     return lineas or [""]
 
 def escribir_en_linea(draw, texto, x, y_base, ancho_max, tam, color, negrita=True,
-                      ajuste="cortar", max_lineas=3):
+                      ajuste="compacto", max_lineas=3):
     # Devuelve los pixeles extra que ocupo hacia abajo (0 si cupo en una sola linea).
-    # ajuste="cortar" (por defecto): una sola linea y la letra conserva SIEMPRE su tamano;
+    # ajuste="compacto" (por defecto): si cabe, una linea con la letra normal. Si no cabe,
+    #   se escribe en DOS lineas mas pequenas dentro del mismo renglon (nada se corre de lugar);
+    #   solo si ni asi cabe se corta con "...".
+    # ajuste="cortar": una sola linea y la letra conserva SIEMPRE su tamano;
     #   si el texto llega al final de la linea se corta y termina en "...".
     # ajuste="envolver": la letra conserva su tamano y el texto pasa a la linea siguiente
     #   (maximo max_lineas; lo que sobre termina en "..."). Los campos de abajo bajan.
     # ajuste="reducir": achica la letra hasta el 55 %.
+    if ajuste == "compacto":
+        t = tam
+        fuente = cargar_fuente(t, negrita)
+        lineas = [str(texto)]
+        if draw.textbbox((0, 0), lineas[0], font=fuente)[2] > ancho_max:
+            cabe = False
+            # Primero una sola linea con la letra apenas mas chica; luego dos lineas.
+            for factor, max_l in ((0.92, 1), (0.85, 1), (0.78, 1), (0.72, 2), (0.66, 2), (0.60, 2)):
+                t = max(10, int(tam * factor))
+                fuente = cargar_fuente(t, negrita)
+                lineas = partir_texto(draw, texto, fuente, ancho_max)
+                if len(lineas) <= max_l:
+                    cabe = True
+                    break
+            if not cabe:
+                lineas = lineas[:2]
+                ultima = lineas[-1]
+                while len(ultima) > 1 and draw.textbbox((0, 0), ultima + "\u2026", font=fuente)[2] > ancho_max:
+                    ultima = ultima[:-1]
+                lineas[-1] = ultima.rstrip() + "\u2026"
+        interlinea = int(t * 1.12)
+        n = len(lineas)
+        # Con dos lineas, la de abajo se acerca a la raya del renglon y la de arriba queda libre.
+        baja = int(tam * 0.12) if n > 1 else 0
+        for i, linea in enumerate(lineas):
+            y = y_base + baja - (n - 1 - i) * interlinea
+            try:
+                draw.text((x, y), linea, fill=color, font=fuente, anchor="ls")
+            except Exception:
+                alto = draw.textbbox((0, 0), linea, font=fuente)[3]
+                draw.text((x, y - alto), linea, fill=color, font=fuente)
+        return 0
     if ajuste == "cortar":
         fuente = cargar_fuente(tam, negrita)
         if draw.textbbox((0, 0), texto, font=fuente)[2] > ancho_max:
@@ -1521,10 +1568,10 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
     valores = {
         "nombres": integrante.get("nombres"), "apellidos": integrante.get("apellidos"),
         "nombre_completo": nombre_completo(integrante), "dni": integrante.get("dni"),
-        "cargo": integrante.get("cargo") or "Sin cargo", "base": integrante.get("nombre_base"),
+        "cargo": integrante.get("cargo") or "Sin cargo", "base": nombre_base_credencial(integrante.get("nombre_base")),
         "provincia": integrante.get("provincia"), "distrito": integrante.get("distrito"),
     }
-    ajuste = t.get("ajuste", "cortar")  # "cortar" (una linea con ...), "envolver" o "reducir"
+    ajuste = t.get("ajuste", "compacto")  # "compacto", "cortar", "envolver" o "reducir"
     desplazamiento = {}  # px que bajan los campos de una misma columna tras un texto largo
     for c in t.get("campos", []):
         texto = str(valores.get(c.get("campo")) or "").strip()
@@ -2301,6 +2348,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             presentes += 1
                             c2.button("\u2713 Presente", key=f"pres_{rsel['id']}_{m['id']}", disabled=True,
                                       use_container_width=True)
+                            # Corregir un error: quita la asistencia de esta reunion (se puede volver a marcar).
+                            if c2.button("Desmarcar", key=f"des_{rsel['id']}_{m['id']}",
+                                         use_container_width=True):
+                                supabase.table("asistencias").delete() \
+                                    .eq("reunion_id", rsel["id"]).eq("integrante_id", m["id"]).execute()
+                                st.rerun()
                         elif c2.button("Marcar presente", key=f"mar_{rsel['id']}_{m['id']}",
                                        use_container_width=True):
                             supabase.table("asistencias").upsert({
