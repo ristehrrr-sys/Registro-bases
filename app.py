@@ -26,6 +26,18 @@ import requests
 import qrcode
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+try:
+    for _k, _v in {
+        "theme.base": "light",
+        "theme.primaryColor": "#20B8B0",
+        "theme.backgroundColor": "#F1F7F8",
+        "theme.secondaryBackgroundColor": "#EAF5F5",
+        "theme.textColor": "#263B40",
+    }.items():
+        st._config.set_option(_k, _v)
+except Exception:
+    pass
+
 st.set_page_config(
     page_title="Registro de Bases y Comandos",
     page_icon="\U0001f5f3\ufe0f",
@@ -548,6 +560,29 @@ hr {
   .sb-scroll { display: none; }
   .sb-h { display: block; }
 }
+
+/* ===== FORZAR MODO CLARO (el celular en modo oscuro volvia todo negro) ===== */
+html, body, .stApp { color-scheme: light !important; }
+.stApp, .stApp p, .stApp label, .stApp span, .stApp li,
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5,
+[data-testid="stMarkdownContainer"], [data-testid="stWidgetLabel"] * { color: var(--text); }
+[data-testid="stAlert"] { background: #FFF8E1 !important; }
+[data-testid="stAlert"] * { color: #263B40 !important; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]) { background: #E8F3FC !important; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) { background: #E6F7EE !important; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentError"]) { background: #FDECEE !important; }
+[data-baseweb="input"] input, [data-baseweb="textarea"] textarea,
+[data-baseweb="select"] *, [data-testid="stNumberInput"] input {
+  background-color: #FFFFFF !important; color: #263B40 !important; -webkit-text-fill-color: #263B40 !important; }
+input::placeholder, textarea::placeholder { color: #8FA3A7 !important; -webkit-text-fill-color: #8FA3A7 !important; }
+[data-baseweb="input"] > div, [data-baseweb="base-input"] { background: #FFFFFF !important; }
+[data-baseweb="popover"] *, [data-baseweb="menu"], [role="listbox"], [role="option"] { background: #FFFFFF !important; color: #263B40 !important; }
+[data-baseweb="select"] svg { fill: #657D82 !important; }
+[data-testid="stFileUploader"] section, [data-testid="stFileUploaderDropzone"] { background: #F7FAFB !important; border: 1px dashed var(--line) !important; }
+[data-testid="stFileUploader"] * { color: #263B40 !important; }
+[data-testid="stFileUploader"] button { background: #FFFFFF !important; border: 1px solid var(--line) !important; }
+[data-testid="stExpander"] summary, [data-testid="stExpander"] * { color: #263B40 !important; }
+[data-testid="stCheckbox"] label, [data-testid="stRadio"] label { color: #263B40 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -982,11 +1017,53 @@ def subir_archivo(bucket, path, contenido, content_type):
     return supabase.storage.from_(bucket).get_public_url(path)
  
 MAX_IMG_BYTES = 8 * 1024 * 1024
+FOTO_LADO_MAX = 800     # lado mas largo (px) con el que se guarda cada foto
+FOTO_CALIDAD = 85       # calidad JPEG (1-100)
+
+try:
+    import cv2
+    import numpy as np
+except Exception:
+    cv2 = None
+
+@lru_cache(maxsize=1)
+def _detector_rostros():
+    return cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+
+def rostro_detectado(datos_jpeg):
+    # True / False; None si no se pudo comprobar (por ejemplo, OpenCV no esta instalado).
+    if cv2 is None:
+        return None
+    try:
+        img = cv2.imdecode(np.frombuffer(datos_jpeg, np.uint8), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return None
+        img = cv2.equalizeHist(img)
+        caras = _detector_rostros().detectMultiScale(img, scaleFactor=1.1, minNeighbors=3, minSize=(50, 50))
+        return len(caras) > 0
+    except Exception:
+        return None
+
+def aviso_de_rostro(datos_jpeg):
+    return "Sin rostro detectado" if rostro_detectado(datos_jpeg) is False else ""
+
+_REVISION_OK = False
+def foto_revision_disponible():
+    # Comprueba (una vez) si ya existen en Supabase las columnas de revision de fotos.
+    global _REVISION_OK
+    if _REVISION_OK:
+        return True
+    try:
+        supabase.table("integrantes_base").select("foto_estado,foto_aviso,foto_motivo").limit(1).execute()
+        _REVISION_OK = True
+    except Exception:
+        _REVISION_OK = False
+    return _REVISION_OK
  
 def ext_imagen(archivo) -> str:
     return "png" if getattr(archivo, "type", "") == "image/png" else "jpg"
  
-def procesar_foto(archivo, lado_max=900) -> bytes:
+def procesar_foto(archivo, lado_max=None) -> bytes:
     # Valida que sea una imagen real, corrige la orientacion, reduce el tamano
     # y la guarda como JPEG nuevo (asi se eliminan metadatos EXIF/GPS).
     try:
@@ -995,9 +1072,10 @@ def procesar_foto(archivo, lado_max=900) -> bytes:
     except Exception:
         raise ValueError("La fotograf\u00eda no es una imagen v\u00e1lida.")
     im = ImageOps.exif_transpose(im).convert("RGB")
+    lado_max = lado_max or FOTO_LADO_MAX
     im.thumbnail((lado_max, lado_max))
     salida = io.BytesIO()
-    im.save(salida, format="JPEG", quality=88, optimize=True)
+    im.save(salida, format="JPEG", quality=FOTO_CALIDAD, optimize=True)
     return salida.getvalue()
  
 def descargar_imagen(url):
@@ -1164,7 +1242,10 @@ def guardar_edicion_integrante(orig, datos, foto=None, quitar_foto=False):
     foto_vieja = orig.get("foto_url")
     if foto is not None:
         path = f'{datos["base_id"]}/{uuid.uuid4().hex}.jpg'
-        datos["foto_url"] = subir_archivo(BUCKET_FOTOS, path, procesar_foto(foto), "image/jpeg")
+        _bytes = procesar_foto(foto)
+        datos["foto_url"] = subir_archivo(BUCKET_FOTOS, path, _bytes, "image/jpeg")
+        if foto_revision_disponible():
+            datos.update({"foto_estado": "pendiente", "foto_aviso": aviso_de_rostro(_bytes), "foto_motivo": None})
     elif quitar_foto:
         datos["foto_url"] = None
     supabase.table("integrantes_base").update(datos).eq("id", orig["id"]).execute()
@@ -1956,7 +2037,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
 
         st.markdown('<div class="sidebar-section-label">Navegación</div>', unsafe_allow_html=True)
 
-        menu_opciones = ["Resumen", "Bases", "Reuniones", "Credenciales", "Exportar", "Plantillas"]
+        menu_opciones = ["Resumen", "Bases", "Fotos", "Reuniones", "Credenciales", "Exportar", "Plantillas"]
         if st.session_state.get("admin_menu_actual") not in menu_opciones:
             st.session_state.admin_menu_actual = "Resumen"
 
@@ -1967,6 +2048,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             format_func=lambda x: {
                 "Resumen": "📊  Resumen",
                 "Bases": "👥  Bases",
+                "Fotos": "📷  Revisar fotos",
                 "Reuniones": "📅  Reuniones",
                 "Credenciales": "🪪  Credenciales",
                 "Exportar": "📤  Exportar",
@@ -2103,10 +2185,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.markdown("### Total de integrantes por base")
                 grafica_supabase("Total de integrantes por base",
                                  [(x["Base"], x["Total de integrantes"]) for x in datos_resumen], "#3ecf8e")
-
-                st.markdown("### Detalle por base")
-                st.dataframe(pd.DataFrame(datos_resumen), use_container_width=True, hide_index=True,
-                             column_config={"Base": st.column_config.TextColumn("Base", width="medium")})
         except Exception as e:
             error_supabase("No se pudo generar el resumen estadístico.", e)
 
@@ -2353,6 +2431,68 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         except Exception as e:
             error_supabase("No se pudo completar la acci\u00f3n de administraci\u00f3n.", e)
  
+    if panel == "Fotos":
+        st.subheader("Revisar fotos")
+        if not foto_revision_disponible():
+            st.info("Para usar la revisión de fotos, ejecuta una vez este SQL en Supabase (SQL Editor) y vuelve a abrir esta pantalla.")
+            st.code("alter table integrantes_base\n  add column if not exists foto_estado text default 'pendiente',\n  add column if not exists foto_aviso text,\n  add column if not exists foto_motivo text;", language="sql")
+        else:
+            try:
+                mapa_bases = {b["id"]: b["nombre_base"] for b in cargar_bases()}
+                todas = traer_todo(lambda: supabase.table("integrantes_base")
+                                   .select("id,base_id,nombres,apellidos,dni,foto_url,foto_estado,foto_aviso,foto_motivo")
+                                   .not_.is_("foto_url", "null").order("id"))
+                for f in todas:
+                    f["foto_estado"] = f.get("foto_estado") or "pendiente"
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Pendientes", sum(f["foto_estado"] == "pendiente" for f in todas))
+                c2.metric("Aprobadas", sum(f["foto_estado"] == "aprobada" for f in todas))
+                c3.metric("Rechazadas", sum(f["foto_estado"] == "rechazada" for f in todas))
+                fc1, fc2 = st.columns(2)
+                est = fc1.selectbox("Estado", ["Pendientes", "Aprobadas", "Rechazadas", "Todas"], key="fotos_f_estado")
+                nombres_bases = ["Todas las bases"] + sorted(set(mapa_bases.values()))
+                bsel = fc2.selectbox("Base", nombres_bases, key="fotos_f_base")
+                solo_aviso = st.checkbox("Solo fotos con aviso (sin rostro detectado)", key="fotos_f_aviso")
+                motivo = st.selectbox("Motivo al rechazar", ["Foto inadecuada o no es un rostro", "Foto borrosa u oscura",
+                                      "Rostro tapado (lentes oscuros, gorra)", "Foto de otra persona"], key="fotos_motivo")
+                clave = {"Pendientes": "pendiente", "Aprobadas": "aprobada", "Rechazadas": "rechazada"}.get(est)
+                lista = [f for f in todas
+                         if (clave is None or f["foto_estado"] == clave)
+                         and (bsel == "Todas las bases" or mapa_bases.get(f["base_id"]) == bsel)
+                         and (not solo_aviso or f.get("foto_aviso"))]
+                por_pag = 12
+                paginas = max(1, -(-len(lista) // por_pag))
+                pag = st.number_input("Página", min_value=1, max_value=paginas, value=1, step=1, key="fotos_pag") if paginas > 1 else 1
+                if not lista:
+                    st.info("No hay fotos con este filtro.")
+                trozo = lista[(pag - 1) * por_pag: pag * por_pag]
+                for i in range(0, len(trozo), 2):
+                    cols = st.columns(2)
+                    for col, f in zip(cols, trozo[i:i + 2]):
+                        with col:
+                            with st.container(border=True):
+                                st.image(f["foto_url"], use_container_width=True)
+                                st.markdown(f"**{_html.escape(nombre_completo(f))}**")
+                                st.caption(f"{mapa_bases.get(f['base_id'], '')} · DNI {f.get('dni', '')}")
+                                if f.get("foto_aviso"):
+                                    st.warning(f["foto_aviso"])
+                                if f["foto_estado"] == "rechazada":
+                                    st.error(f.get("foto_motivo") or "Rechazada")
+                                if f["foto_estado"] == "pendiente":
+                                    b1, b2 = st.columns(2)
+                                    if b1.button("Aprobar", key=f"fa_{f['id']}", use_container_width=True):
+                                        supabase.table("integrantes_base").update({"foto_estado": "aprobada", "foto_motivo": None}).eq("id", f["id"]).execute()
+                                        st.rerun()
+                                    if b2.button("Rechazar", key=f"fr_{f['id']}", use_container_width=True):
+                                        supabase.table("integrantes_base").update({"foto_estado": "rechazada", "foto_motivo": motivo}).eq("id", f["id"]).execute()
+                                        st.rerun()
+                                else:
+                                    if st.button("Volver a pendiente", key=f"fp_{f['id']}", use_container_width=True):
+                                        supabase.table("integrantes_base").update({"foto_estado": "pendiente", "foto_motivo": None}).eq("id", f["id"]).execute()
+                                        st.rerun()
+            except Exception as e:
+                error_supabase("No se pudo cargar la revisión de fotos.", e)
+
     if panel == "Reuniones":
         st.subheader("Reuniones y asistencia")
         with st.form("crear_reunion"):
@@ -2952,17 +3092,20 @@ if st.session_state.base_id is not None:
                         st.error("Ese DNI ya est\u00e1 registrado en esta base.")
                     else:
                         url_foto = None
+                        extra_foto = {}
                         if foto is not None:
                             # La imagen se revalida y se recomprime (sin metadatos/GPS),
                             # y el nombre del archivo ya no contiene el DNI.
                             datos_foto = procesar_foto(foto)
                             path = f"{base_id}/{uuid.uuid4().hex}.jpg"
                             url_foto = subir_archivo(BUCKET_FOTOS, path, datos_foto, "image/jpeg")
+                            if foto_revision_disponible():
+                                extra_foto = {"foto_estado": "pendiente", "foto_aviso": aviso_de_rostro(datos_foto)}
                         supabase.table("integrantes_base").insert({
                             "base_id": base_id, "nombres": nombres.strip(),
                             "apellidos": apellidos.strip(), "dni": dni.strip(),
                             "celular": celular.strip(), "cargo": cargo_final,
-                            "foto_url": url_foto
+                            "foto_url": url_foto, **extra_foto
                         }).execute()
                         st.success("Integrante registrado.")
                         st.rerun()
