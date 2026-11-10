@@ -6,3 +6,4 @@ Pillow
 requests
 qrcode[pil]
 reportlab
+opencv-python-headless
