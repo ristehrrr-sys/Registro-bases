@@ -1445,6 +1445,25 @@ def crear_qr(url):
     qr.make(fit=True)
     return qr.make_image(fill_color="black", back_color="white").convert("RGB")
  
+def crear_qr_ajustado(url, lado):
+    # QR sin borde propio: ocupa casi todo el cuadro (deja un pequeno margen blanco) y se
+    # escala con bordes nitidos (sin difuminar), para que encaje y se pueda escanear.
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=1, border=0)
+    qr.add_data(url)
+    qr.make(fit=True)
+    matriz = qr.get_matrix()
+    n = len(matriz)
+    margen = max(3, int(lado * 0.06))
+    area = max(n, lado - 2 * margen)
+    escala = area // n
+    lado_qr = escala * n if (escala >= 3 and escala * n >= 0.9 * area) else area
+    base = Image.new("L", (n, n), 255)
+    base.putdata([0 if celda else 255 for fila in matriz for celda in fila])
+    base = base.resize((lado_qr, lado_qr), Image.NEAREST).convert("RGBA")
+    fondo = Image.new("RGBA", (lado, lado), "white")
+    fondo.paste(base, ((lado - lado_qr) // 2, (lado - lado_qr) // 2))
+    return fondo
+
 @lru_cache(maxsize=128)
 def cargar_fuente(tamano, negrita=False):
     # Busca una fuente real en el sistema. Si el servidor no tiene ninguna, usa la
@@ -1498,6 +1517,41 @@ def ajustar_texto(dibujo, texto, fuente, ancho_max):
 # del alto de la imagen, asi funcionan aunque la plantilla tenga otro tamano.
 # En "campos", "y" es la altura de la linea sobre la que se escribe el dato.
 DISENOS_PREDEFINIDOS = {
+    # Medido sobre las plantillas "Credencial Tonconi" de 1264 x 843 px (fotos del marco y caja de QR).
+    "Credencial Tonconi (segunda vuelta)": {
+        "version": 1,
+        "foto": {"x": 0.0411, "y": 0.3048, "w": 0.2041, "h": 0.3500},
+        "qr": {"x": 0.8410, "y": 0.5101, "w": 0.1392, "h": 0.2088},
+        "texto": {
+            "color": "#111111", "tamano": 0.031, "negrita": True, "margen": 0.011,
+            "campos": [
+                {"campo": "nombres",   "x": 0.4217, "y": 0.3749, "ancho": 0.2850},
+                {"campo": "apellidos", "x": 0.4217, "y": 0.4330, "ancho": 0.2850},
+                {"campo": "dni",       "x": 0.4217, "y": 0.4899, "ancho": 0.2850},
+                {"campo": "cargo",     "x": 0.4217, "y": 0.5480, "ancho": 0.2850},
+                {"campo": "base",      "x": 0.4217, "y": 0.6062, "ancho": 0.2850},
+                {"campo": "provincia", "x": 0.4217, "y": 0.6643, "ancho": 0.2850},
+                {"campo": "distrito",  "x": 0.4217, "y": 0.7224, "ancho": 0.2850},
+            ],
+        },
+    },
+    "Credencial Tonconi (QR cuadrado 146)": {
+        "version": 1,
+        "foto": {"x": 0.0411, "y": 0.3048, "w": 0.2041, "h": 0.3500},
+        "qr": {"x": 0.8512, "y": 0.5552, "w": 0.1155, "h": 0.1720},
+        "texto": {
+            "color": "#111111", "tamano": 0.031, "negrita": True, "margen": 0.011,
+            "campos": [
+                {"campo": "nombres",   "x": 0.4217, "y": 0.3749, "ancho": 0.2850},
+                {"campo": "apellidos", "x": 0.4217, "y": 0.4330, "ancho": 0.2850},
+                {"campo": "dni",       "x": 0.4217, "y": 0.4899, "ancho": 0.2850},
+                {"campo": "cargo",     "x": 0.4217, "y": 0.5480, "ancho": 0.2850},
+                {"campo": "base",      "x": 0.4217, "y": 0.6062, "ancho": 0.2850},
+                {"campo": "provincia", "x": 0.4217, "y": 0.6643, "ancho": 0.2850},
+                {"campo": "distrito",  "x": 0.4217, "y": 0.7224, "ancho": 0.2850},
+            ],
+        },
+    },
     "Marcos y l\u00edneas (ejemplo Puno)": {
         "version": 1,
         "foto": {"x": 0.0410, "y": 0.3037, "w": 0.2201, "h": 0.3750},
@@ -1688,8 +1742,8 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
         bx, by = int(q["x"] * w), int(q["y"] * h)
         bw, bh = max(1, int(q["w"] * w)), max(1, int(q["h"] * h))
         lado_qr = min(bw, bh)
-        qr = crear_qr(qr_url).resize((lado_qr, lado_qr))
-        lienzo.alpha_composite(qr.convert("RGBA"), (bx + (bw - lado_qr) // 2, by + (bh - lado_qr) // 2))
+        qr = crear_qr_ajustado(qr_url, lado_qr)
+        lienzo.alpha_composite(qr, (bx + (bw - lado_qr) // 2, by + (bh - lado_qr) // 2))
     t = diseno.get("texto") or {}
     color = t.get("color", "#111111")
     tam = max(10, int(float(t.get("tamano", 0.033)) * h))
@@ -2999,7 +3053,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             frontal = st.file_uploader("Imagen frontal (PNG o JPG)", type=["png", "jpg", "jpeg"])
             posterior = st.file_uploader("Imagen posterior (opcional)", type=["png", "jpg", "jpeg"])
             distribucion = st.selectbox("Distribuci\u00f3n de datos, foto y QR",
-                                        [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()), index=0,
+                                        [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()),
+                                        index=([DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys())).index("Credencial Tonconi (QR cuadrado 146)"),
                                         help="Usa \u00abAutom\u00e1tico\u00bb si tu dise\u00f1o es distinto al de Puno. "
                                              "Despu\u00e9s podr\u00e1s ajustarlo con vista previa.")
             activar_al_guardar = st.checkbox("Activar esta plantilla al guardar", value=True)
