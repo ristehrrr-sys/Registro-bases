@@ -2724,6 +2724,24 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     excel_multihoja({"Resumen": resumen, "Bases": dfb, "Integrantes": dfi},
                                     titulo=f"Registro de bases \u2014 {prov} \u2014 {date.today().strftime('%d/%m/%Y')}"),
                     f"registro_bases_{nombre_archivo_seguro(prov)}.xlsx", MIME_XLSX, key="xl_completo")
+                sg_por_base = {}
+                for i in integ_f:
+                    if es_secretario_general(i.get("cargo")):
+                        sg_por_base.setdefault(i["base_id"], []).append(i)
+                filas_sg = []
+                for b in bases_f:
+                    sgs = sg_por_base.get(b["id"], [])
+                    filas_sg.append({
+                        "Base": b.get("nombre_base", ""), "Provincia": b.get("provincia") or "",
+                        "Distrito": b.get("distrito") or "",
+                        "Secretario(a) general": "; ".join(nombre_completo(f) for f in sgs) or "Sin registrar",
+                        "Celular": "; ".join(str(f.get("celular", "")) for f in sgs),
+                        "Celular con c\u00f3digo de pa\u00eds": "; ".join(
+                            "+" + celular_whatsapp(f.get("celular")) for f in sgs if celular_whatsapp(f.get("celular"))),
+                    })
+                with st.expander("Secretarios generales por base", expanded=False):
+                    df_sg = pd.DataFrame(filas_sg)[["Base", "Provincia", "Distrito", "Secretario(a) general", "Celular"]]
+                    st.dataframe(df_sg.sort_values(["Provincia", "Base"]), use_container_width=True, hide_index=True)
                 st.divider()
                 st.write("**Un Excel y dos PDF por base** (lista y hoja de firmas), en un solo ZIP.")
                 if st.button("Preparar ZIP por base", key="zip_bases_btn"):
@@ -3255,6 +3273,51 @@ if st.session_state.base_id is not None:
                            "provincia": st.session_state.base_provincia,
                            "distrito": st.session_state.base_distrito,
                            "direccion": st.session_state.get("base_direccion", "")}, filas, "mi_base")
+            with st.expander("Editar integrante", expanded=False):
+                msg_ed = st.session_state.pop("msg_edit_base", None)
+                if msg_ed:
+                    st.success(msg_ed)
+                opc_ed = {f'{f.get("apellidos", "")}, {f.get("nombres", "")} \u00b7 {f.get("dni", "")}': f for f in filas}
+                sel_ed = st.selectbox("Integrante", list(opc_ed.keys()), key="base_ed_sel")
+                m = opc_ed[sel_ed]
+                mid = m["id"]
+                if m.get("foto_url"):
+                    st.image(m["foto_url"], width=110)
+                st.caption("El DNI no se puede cambiar aqu\u00ed. Si hay un error en el DNI, avisa al administrador.")
+                cargo_act = m.get("cargo") or ""
+                with st.form(f"base_form_ed_{mid}"):
+                    e_nom = st.text_input("Nombres", value=m.get("nombres", ""), key=f"base_en_{mid}")
+                    e_ape = st.text_input("Apellidos", value=m.get("apellidos", ""), key=f"base_ea_{mid}")
+                    e_cel = st.text_input("Celular (9 a 15 d\u00edgitos)", value=str(m.get("celular", "")), key=f"base_ec_{mid}")
+                    e_csel = st.selectbox("Cargo o condici\u00f3n", CARGOS, key=f"base_cs_{mid}",
+                                          index=CARGOS.index(cargo_act) if cargo_act in CARGOS else len(CARGOS) - 1)
+                    e_otro = st.text_input("Si elegiste \u00abOtro\u00bb, especifica el cargo", key=f"base_co_{mid}",
+                                           value="" if cargo_act in CARGOS else cargo_act)
+                    e_foto = st.file_uploader("Cambiar fotograf\u00eda (opcional)", type=["jpg", "jpeg", "png"],
+                                              key=f"base_ef_{mid}")
+                    guardar_ed = st.form_submit_button("Guardar cambios")
+                if guardar_ed:
+                    cargo_final = e_otro.strip() if e_csel == "Otro" else e_csel
+                    if not e_nom.strip() or not e_ape.strip():
+                        st.warning("Completa nombres y apellidos.")
+                    elif not re.fullmatch(r"\+?\d{9,15}", e_cel.strip()):
+                        st.warning("Celular inv\u00e1lido.")
+                    elif e_csel == "Otro" and not cargo_final:
+                        st.warning("Especifica el cargo.")
+                    elif e_foto is not None and e_foto.size > MAX_IMG_BYTES:
+                        st.warning("La fotograf\u00eda debe pesar menos de 8 MB.")
+                    else:
+                        try:
+                            guardar_edicion_integrante(m, {
+                                "nombres": e_nom.strip(), "apellidos": e_ape.strip(), "dni": str(m["dni"]).strip(),
+                                "celular": e_cel.strip(), "cargo": cargo_final, "base_id": base_id,
+                            }, e_foto, False)
+                            st.session_state["msg_edit_base"] = "Datos del integrante actualizados."
+                            st.rerun()
+                        except ValueError as ve:
+                            st.warning(str(ve))
+                        except Exception as e:
+                            error_supabase("No se pudo guardar los cambios.", e)
         else:
             st.info("Todav\u00eda no hay integrantes registrados.")
     except Exception as e:
