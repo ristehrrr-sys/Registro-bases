@@ -1382,6 +1382,61 @@ def zip_credenciales(resultados):
                 z.writestr(nombre + "_reverso.png", r["reverso_png"])
     return buf.getvalue()
  
+def es_secretario_general(cargo):
+    c = unicodedata.normalize("NFKD", str(cargo or "")).encode("ascii", "ignore").decode().upper()
+    return "SECRETARI" in c and "GENERAL" in c
+ 
+def celular_whatsapp(cel):
+    d = re.sub(r"\D", "", str(cel or ""))
+    return "51" + d if len(d) == 9 else d
+ 
+def texto_celular(cel):
+    d = celular_whatsapp(cel)
+    if not d:
+        return "sin celular"
+    return f"[+{d}](https://wa.me/{d})"
+ 
+def panel_contacto(titulo, personas):
+    # Cuadro pequeno con nombre y celular (con enlace a WhatsApp).
+    with st.container(border=True):
+        st.caption(titulo)
+        if not personas:
+            st.write("Sin registrar")
+        for f in personas:
+            st.markdown(f"**{_html.escape(nombre_completo(f))}** \u00b7 \U0001f4f1 {texto_celular(f.get('celular'))}")
+ 
+def zip_pdfs_individuales(resultados, nombres_bases=None):
+    # Un PDF por persona (frente y reverso), dentro de una carpeta por base.
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+    mm = 2.83465
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
+        for r in resultados:
+            p = r["persona"]
+            pdf = io.BytesIO()
+            c = canvas.Canvas(pdf)
+            for clave in ("frente_png", "reverso_png"):
+                png = r.get(clave)
+                if not png:
+                    continue
+                w_im, h_im = Image.open(io.BytesIO(png)).size
+                pw = (85.6 if w_im >= h_im else 54) * mm
+                ph = pw * h_im / w_im
+                c.setPageSize((pw, ph))
+                c.drawImage(ImageReader(io.BytesIO(png)), 0, 0, width=pw, height=ph)
+                c.showPage()
+            c.save()
+            nombre = (f'{nombre_archivo_seguro(p.get("apellidos", ""))}_'
+                      f'{nombre_archivo_seguro(p.get("nombres", ""))}_{nombre_archivo_seguro(p["dni"])}.pdf')
+            carpeta = ""
+            if nombres_bases:
+                nb = nombres_bases.get(p.get("base_id"))
+                if nb:
+                    carpeta = nombre_archivo_seguro(nb) + "/"
+            z.writestr(carpeta + nombre, pdf.getvalue())
+    return buf.getvalue()
+ 
 def pdf_credenciales(resultados, hoja_a4=False):
     from reportlab.pdfgen import canvas
     from reportlab.lib.utils import ImageReader
@@ -2793,6 +2848,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             st.success("Credencial generada. Escanea el QR para probar la verificaci\u00f3n.")
                 if (st.session_state.get("credencial_generada")
                         and st.session_state.get("credencial_dni") == str(integrante["dni"])):
+                    panel_contacto("Persona de esta credencial", [integrante])
                     st.image(st.session_state["credencial_generada"], caption="Vista previa")
                     nombre_archivo = st.session_state.get("credencial_nombre", "credencial")
                     st.download_button("Descargar credencial frontal (PNG)",
@@ -2834,6 +2890,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         f_zip = "ZIP con im\u00e1genes PNG"
         f_pdf = "PDF (una credencial por p\u00e1gina)"
         f_a4 = "PDF A4 para imprimir (8 por hoja)"
+        f_pdf_ind = "ZIP con un PDF por persona (para repartir)"
         M_FALTAN = "Generar las que a\u00fan no tienen credencial"
         M_DESCARGAR = "Volver a descargar las ya generadas"
         if not APP_PUBLIC_URL:
@@ -2858,6 +2915,20 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     sel = st.selectbox("Base", list(opciones.keys()), key="lote_base")
                     modo = st.radio("\u00bfQu\u00e9 quieres hacer?", [M_FALTAN, M_DESCARGAR], key="lote_modo")
                     id_base = opciones[sel]
+                    if id_base is not None:
+                        panel_contacto("Secretario(a) general de esta base",
+                                       [f for f in todos if f.get("base_id") == id_base
+                                        and es_secretario_general(f.get("cargo"))])
+                    else:
+                        with st.expander("Secretarios generales por base"):
+                            filas_sg = []
+                            for b in bases:
+                                sgs = [f for f in todos if f.get("base_id") == b["id"]
+                                       and es_secretario_general(f.get("cargo"))]
+                                filas_sg.append({"Base": b["nombre_base"],
+                                                 "Secretario(a) general": ", ".join(nombre_completo(f) for f in sgs) or "Sin registrar",
+                                                 "Celular": ", ".join(f"+{celular_whatsapp(f.get('celular'))}" for f in sgs)})
+                            st.dataframe(pd.DataFrame(filas_sg), use_container_width=True, hide_index=True)
                     unicos = {}
                     for f in todos:
                         d = str(f.get("dni", "")).strip()
@@ -2901,8 +2972,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         lote = cola[(tanda - 1) * tam: tanda * tam]
                         extra = f", tanda {tanda} de {n_tandas}" if (modo != M_FALTAN and n_tandas > 1) else ""
                         st.write(f"Se preparar\u00e1n **{len(lote)}** credenciales ({len(cola)} en total{extra}).")
-                        formatos = st.multiselect("Formatos de descarga", [f_zip, f_pdf, f_a4],
-                                                  default=[f_zip, f_a4], key="lote_formatos")
+                        formatos = st.multiselect("Formatos de descarga", [f_pdf_ind, f_zip, f_pdf, f_a4],
+                                                  default=[f_pdf_ind], key="lote_formatos")
                         etiqueta = "Generar" if modo == M_FALTAN else "Descargar"
                         plantilla = plantilla_activa()
                         st.caption(f'Plantilla: {plantilla["nombre"]}')
@@ -2926,6 +2997,9 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                 if f_zip in formatos:
                                     archivos["zip"] = zip_credenciales(resultados)
                                 try:
+                                    if f_pdf_ind in formatos:
+                                        archivos["pdfs_ind"] = zip_pdfs_individuales(
+                                            resultados, {k: v["nombre_base"] for k, v in mapa_bases.items()})
                                     if f_pdf in formatos:
                                         archivos["pdf"] = pdf_credenciales(resultados)
                                     if f_a4 in formatos:
@@ -2950,7 +3024,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                            "\u00abCredenciales generadas\u00bb y gen\u00e9ralas de nuevo una sola vez.")
                         st.caption("Si pierdes los archivos, puedes volver a descargarlas con la opci\u00f3n "
                                    "\u00abVolver a descargar las ya generadas\u00bb.")
-                        d1, d2, d3 = st.columns(3)
+                        d0, d1, d2, d3 = st.columns(4)
+                        if archivos.get("pdfs_ind"):
+                            d0.download_button("Descargar ZIP de PDFs (uno por persona)", archivos["pdfs_ind"],
+                                               f'credenciales_pdf_{archivos["sello"]}.zip', "application/zip",
+                                               key="dl_lote_pdfs_ind")
                         if archivos.get("zip"):
                             d1.download_button("Descargar ZIP (PNG)", archivos["zip"],
                                                f'credenciales_{archivos["sello"]}.zip', "application/zip",
