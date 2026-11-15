@@ -1044,6 +1044,32 @@ def rostro_detectado(datos_jpeg):
     except Exception:
         return None
 
+def memoria_servidor():
+    # Memoria que usa esta app (en MB). Solo funciona en servidores Linux, como Streamlit Cloud.
+    datos = {"proceso": None, "pico": None, "contenedor": None, "limite": None}
+    try:
+        with open("/proc/self/status") as f:
+            for linea in f:
+                if linea.startswith("VmRSS:"):
+                    datos["proceso"] = int(linea.split()[1]) / 1024
+                elif linea.startswith("VmHWM:"):
+                    datos["pico"] = int(linea.split()[1]) / 1024
+    except Exception:
+        pass
+    for ruta_uso, ruta_limite in (("/sys/fs/cgroup/memory.current", "/sys/fs/cgroup/memory.max"),
+                                  ("/sys/fs/cgroup/memory/memory.usage_in_bytes", "/sys/fs/cgroup/memory/memory.limit_in_bytes")):
+        try:
+            with open(ruta_uso) as f:
+                datos["contenedor"] = int(f.read().strip()) / 1048576
+            with open(ruta_limite) as f:
+                bruto = f.read().strip()
+            if bruto.isdigit() and int(bruto) / 1048576 < 100000:
+                datos["limite"] = int(bruto) / 1048576
+            break
+        except Exception:
+            continue
+    return datos
+
 def aviso_de_rostro(datos_jpeg):
     return "Sin rostro detectado" if rostro_detectado(datos_jpeg) is False else ""
 
@@ -1405,12 +1431,105 @@ def panel_contacto(titulo, personas):
         for f in personas:
             st.markdown(f"**{_html.escape(nombre_completo(f))}** \u00b7 \U0001f4f1 {texto_celular(f.get('celular'))}")
  
-def zip_pdfs_individuales(resultados, nombres_bases=None):
+def secretarios_por_base(integrantes):
+    # {base_id: [secretarios(as) generales]}
+    d = {}
+    for i in integrantes:
+        if es_secretario_general(i.get("cargo")):
+            d.setdefault(i.get("base_id"), []).append(i)
+    return d
+
+def enlace_whatsapp(cel, texto=""):
+    d = celular_whatsapp(cel)
+    if not d:
+        return ""
+    return f"https://wa.me/{d}" + (f"?text={quote(texto)}" if texto else "")
+
+def dataframe_secretarios(bases, integrantes):
+    # Una fila por secretario(a) general. Las bases sin secretario(a) salen como "Sin registrar".
+    sg = secretarios_por_base(integrantes)
+    filas = []
+    for b in sorted(bases, key=lambda x: (str(x.get("provincia") or ""), str(x.get("nombre_base", "")).lower())):
+        lista = sg.get(b["id"], [])
+        base_datos = {"Base": b.get("nombre_base", ""), "Provincia": b.get("provincia") or "",
+                      "Distrito": b.get("distrito") or "", "Direcci\u00f3n de la base": b.get("direccion") or ""}
+        if not lista:
+            filas.append({**base_datos, "Apellidos": "Sin registrar", "Nombres": "", "DNI": "", "Cargo / condici\u00f3n": "",
+                          "Celular": "", "WhatsApp (con c\u00f3digo de pa\u00eds)": "", "Enlace de WhatsApp": ""})
+        for f in lista:
+            wa = celular_whatsapp(f.get("celular"))
+            filas.append({**base_datos, "Apellidos": f.get("apellidos", ""), "Nombres": f.get("nombres", ""),
+                          "DNI": f.get("dni", ""), "Cargo / condici\u00f3n": f.get("cargo") or "",
+                          "Celular": f.get("celular", ""), "WhatsApp (con c\u00f3digo de pa\u00eds)": ("+" + wa) if wa else "",
+                          "Enlace de WhatsApp": enlace_whatsapp(f.get("celular"))})
+    return pd.DataFrame(filas)
+
+def contactos_del_lote(resultados, mapa_bases, integrantes):
+    # Por cada base que tiene credenciales en este lote: cantidad y secretario(a) general con su celular.
+    sg = secretarios_por_base(integrantes)
+    cuenta = {}
+    for r in resultados:
+        bid = r["persona"].get("base_id")
+        cuenta[bid] = cuenta.get(bid, 0) + 1
+    salida = []
+    for bid, n in sorted(cuenta.items(), key=lambda kv: str(mapa_bases.get(kv[0], {}).get("nombre_base", "")).lower()):
+        b = mapa_bases.get(bid, {})
+        salida.append({
+            "base_id": bid, "base": b.get("nombre_base", ""), "provincia": b.get("provincia") or "",
+            "distrito": b.get("distrito") or "", "n": n,
+            "sg": [{"nombre": nombre_completo(f), "celular": str(f.get("celular", "")).strip(),
+                    "wa": celular_whatsapp(f.get("celular"))} for f in sg.get(bid, [])],
+        })
+    return salida
+
+def dataframe_contactos_lote(contactos):
+    filas = []
+    for c in contactos:
+        base = {"Base": c["base"], "Provincia": c["provincia"], "Distrito": c["distrito"], "Credenciales": c["n"]}
+        if not c["sg"]:
+            filas.append({**base, "Secretario(a) general": "Sin registrar", "Celular": "", "WhatsApp": "", "Enlace de WhatsApp": ""})
+        for s_ in c["sg"]:
+            msg = f"Hola {s_['nombre']}, te env\u00edo las credenciales de la base {c['base']}."
+            filas.append({**base, "Secretario(a) general": s_["nombre"], "Celular": s_["celular"],
+                          "WhatsApp": ("+" + s_["wa"]) if s_["wa"] else "",
+                          "Enlace de WhatsApp": enlace_whatsapp(s_["celular"], msg)})
+    return pd.DataFrame(filas)
+
+def texto_contacto_base(c):
+    lineas = [f"Base: {c['base']}", f"Credenciales en esta carpeta: {c['n']}", ""]
+    if not c["sg"]:
+        lineas.append("Secretario(a) general: sin registrar")
+    for s_ in c["sg"]:
+        lineas.append(f"Secretario(a) general: {s_['nombre']}")
+        lineas.append(f"Celular: {('+' + s_['wa']) if s_['wa'] else 'sin celular'}")
+        if s_["wa"]:
+            lineas.append(f"WhatsApp: https://wa.me/{s_['wa']}")
+        lineas.append("")
+    return "\n".join(lineas)
+
+def mostrar_contactos_lote(contactos):
+    # Tarjeta por base con el secretario(a) general y el enlace para escribirle por WhatsApp.
+    with st.expander("Secretarios generales para enviar por WhatsApp", expanded=True):
+        for c in contactos:
+            with st.container(border=True):
+                st.markdown(f"**{_html.escape(c['base'])}** \u00b7 {c['n']} credencial(es)")
+                if not c["sg"]:
+                    st.caption("Sin secretario(a) general registrado")
+                for s_ in c["sg"]:
+                    msg = f"Hola {s_['nombre']}, te env\u00edo las credenciales de la base {c['base']}."
+                    enlace = enlace_whatsapp(s_["celular"], msg)
+                    if enlace:
+                        st.markdown(f"{_html.escape(s_['nombre'])} \u00b7 +{s_['wa']} \u00b7 [Abrir WhatsApp]({enlace})")
+                    else:
+                        st.markdown(f"{_html.escape(s_['nombre'])} \u00b7 sin celular")
+
+def zip_pdfs_individuales(resultados, nombres_bases=None, contactos=None):
     # Un PDF por persona (frente y reverso), dentro de una carpeta por base.
     from reportlab.pdfgen import canvas
     from reportlab.lib.utils import ImageReader
     mm = 2.83465
     buf = io.BytesIO()
+    carpetas_con_contacto = set()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
         for r in resultados:
             p = r["persona"]
@@ -1435,6 +1554,11 @@ def zip_pdfs_individuales(resultados, nombres_bases=None):
                 if nb:
                     carpeta = nombre_archivo_seguro(nb) + "/"
             z.writestr(carpeta + nombre, pdf.getvalue())
+            if contactos and carpeta and carpeta not in carpetas_con_contacto:
+                carpetas_con_contacto.add(carpeta)
+                c_base = contactos.get(p.get("base_id"))
+                if c_base:
+                    z.writestr(carpeta + "LEEME_secretario_general.txt", texto_contacto_base(c_base))
     return buf.getvalue()
  
 def pdf_credenciales(resultados, hoja_a4=False):
@@ -2193,6 +2317,21 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 label_visibility="collapsed",
             )
 
+        with st.expander("🖥️ Memoria del servidor"):
+            _m = memoria_servidor()
+            if _m["proceso"] is None:
+                st.caption("No se puede medir en este servidor.")
+            else:
+                _ref = _m["limite"] or 2700.0
+                st.progress(min(1.0, _m["proceso"] / _ref))
+                st.caption(f"App ahora: {_m['proceso']:.0f} MB · pico: {(_m['pico'] or _m['proceso']):.0f} MB")
+                if _m["contenedor"] is not None:
+                    st.caption(f"Contenedor completo: {_m['contenedor']:.0f} MB")
+                st.caption(f"Referencia: hasta ~{_ref:.0f} MB. Si el pico pasa de ~1500 MB, avisa.")
+                if _m["proceso"] > 1500:
+                    st.warning("La memoria está alta. Evita generar muchas credenciales juntas o reinicia la app.")
+            st.button("Actualizar", key="memoria_actualizar", use_container_width=True)
+
         st.markdown("---")
         if st.button("Cerrar sesión", use_container_width=True, key="sidebar_logout_admin"):
             limpiar_sesion()
@@ -2742,6 +2881,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 with st.expander("Secretarios generales por base", expanded=False):
                     df_sg = pd.DataFrame(filas_sg)[["Base", "Provincia", "Distrito", "Secretario(a) general", "Celular"]]
                     st.dataframe(df_sg.sort_values(["Provincia", "Base"]), use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Descargar Excel solo de secretarios generales",
+                    excel_bytes(dataframe_secretarios(bases_f, integ_f), "Secretarios generales",
+                                titulo=f"Secretarios generales \u2014 {prov} \u2014 {date.today().strftime('%d/%m/%Y')}"),
+                    f"secretarios_generales_{nombre_archivo_seguro(prov)}.xlsx", MIME_XLSX, key="xl_sg")
                 st.divider()
                 st.write("**Un Excel y dos PDF por base** (lista y hoja de firmas), en un solo ZIP.")
                 if st.button("Preparar ZIP por base", key="zip_bases_btn"):
@@ -3012,12 +3156,14 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                 archivos = {"sello": datetime.now().strftime("%Y%m%d_%H%M"),
                                             "n": len(resultados), "descarga": modo == M_DESCARGAR,
                                             "errores": [nombre_completo(p) for p in errores]}
+                                archivos["contactos"] = contactos_del_lote(resultados, mapa_bases, todos)
                                 if f_zip in formatos:
                                     archivos["zip"] = zip_credenciales(resultados)
                                 try:
                                     if f_pdf_ind in formatos:
                                         archivos["pdfs_ind"] = zip_pdfs_individuales(
-                                            resultados, {k: v["nombre_base"] for k, v in mapa_bases.items()})
+                                            resultados, {k: v["nombre_base"] for k, v in mapa_bases.items()},
+                                            {c["base_id"]: c for c in archivos["contactos"]})
                                     if f_pdf in formatos:
                                         archivos["pdf"] = pdf_credenciales(resultados)
                                     if f_a4 in formatos:
@@ -3061,6 +3207,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                                key="dl_lote_a4")
                         if archivos.get("sin_pdf"):
                             st.caption("Los PDF requieren instalar reportlab (agr\u00e9galo a requirements.txt).")
+                        if archivos.get("contactos"):
+                            mostrar_contactos_lote(archivos["contactos"])
+                            st.download_button("Descargar contactos de este lote (Excel)",
+                                               excel_bytes(dataframe_contactos_lote(archivos["contactos"]), "Contactos",
+                                                           titulo="Secretarios generales del lote"),
+                                               f'contactos_lote_{archivos["sello"]}.xlsx', MIME_XLSX, key="dl_lote_contactos")
             except Exception as e:
                 error_supabase("No se pudo completar la generaci\u00f3n de varias credenciales.", e)
  
