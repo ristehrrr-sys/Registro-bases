@@ -530,7 +530,7 @@ hr {
 .metric-info .label { overflow-wrap: anywhere; line-height: 1.25; }
 
 /* GRAFICAS HORIZONTALES (solo celular, nombres completos) */
-.sb-h { display: none; }
+.sb-h { display: block; }
 .sb-hrow { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .sb-hrow:last-child { border-bottom: 0; }
 .sb-hname { font: .74rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#374151;
@@ -540,6 +540,14 @@ hr {
 .sb-hfill { height: 100%; min-width: 2px; border-radius: 999px; transition: width .4s ease; }
 .sb-hval { font: .75rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#6b7280;
   min-width: 1.6em; text-align: right; }
+
+/* Laptop / pantalla ancha: nombre completo a la izquierda y barra a la derecha */
+@media (min-width: 641px) and (pointer: fine) {
+  .sb-hrow { display: grid; grid-template-columns: minmax(200px, 34%) 1fr;
+    align-items: center; column-gap: 16px; padding: 7px 0; }
+  .sb-hname { margin-bottom: 0; text-align: right; }
+  .sb-htrack { height: 12px; }
+}
 
 @media (max-width: 640px), (pointer: coarse) {
   /* Tarjetas de resumen en 2 x 2 (celular, tambien en "modo escritorio") */
@@ -978,27 +986,23 @@ def botones_lista(base, miembros, clave):
 logger = logging.getLogger("registro_bases")
  
 def grafica_supabase(titulo, items, color="#3ecf8e"):
-    """Grafica de barras verticales delgadas (estilo Supabase). items = [(etiqueta, valor), ...]"""
+    """Grafica de barras horizontales con el nombre COMPLETO de cada base.
+    items = [(etiqueta, valor), ...]. Se muestra ordenada de mayor a menor."""
+    items = sorted(items, key=lambda t: t[1], reverse=True)
     total = sum(v for _, v in items)
     mx = max([v for _, v in items] or [0])
-    cols, labs, filas = [], [], []
+    filas = []
     for etiqueta, valor in items:
-        alto = (valor / mx * 100) if mx else 0
         nombre = _html.escape(str(etiqueta))
-        cols.append(
-            f'<div class="sb-col" title="{nombre}: {valor}"><div class="sb-val">{valor}</div>'
-            f'<div class="sb-bar" style="height:{alto:.2f}%;background:{color}"></div></div>')
-        labs.append(f'<div class="sb-lab" title="{nombre}">{nombre}</div>')
         ancho = (valor / mx * 100) if mx else 0
         filas.append(
-            f'<div class="sb-hrow"><div class="sb-hname">{nombre}</div><div class="sb-hbar">'
+            f'<div class="sb-hrow" title="{nombre}: {valor}"><div class="sb-hname">{nombre}</div><div class="sb-hbar">'
             f'<div class="sb-htrack"><div class="sb-hfill" style="width:{ancho:.2f}%;background:{color}"></div></div>'
             f'<div class="sb-hval">{valor}</div></div></div>')
     st.markdown(
         f'<div class="sb-card"><div class="sb-title">{_html.escape(titulo)}</div>'
-        f'<div class="sb-total">{total}</div><div class="sb-scroll">'
-        f'<div class="sb-plot">{"".join(cols)}</div><div class="sb-labels">{"".join(labs)}</div>'
-        f'</div><div class="sb-h">{"".join(filas)}</div></div>', unsafe_allow_html=True)
+        f'<div class="sb-total">{total}</div>'
+        f'<div class="sb-h">{"".join(filas)}</div></div>', unsafe_allow_html=True)
 
 
 def error_supabase(mensaje, error=None):
