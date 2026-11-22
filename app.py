@@ -616,6 +616,7 @@ BUCKET_PLANTILLAS = "plantillas_credenciales"
 APP_PUBLIC_URL = st.secrets.get("APP_PUBLIC_URL", "").strip().rstrip("/")
 # Consulta publica del QR: False = solo se ve la credencial. True = tambien foto, nombre, cargo y bases arriba.
 MOSTRAR_DATOS_EN_VERIFICACION = False
+MOSTRAR_DNI_EN_VERIFICACION = True  # pon False para ocultar el DNI en la pagina publica del QR
  
 # ---------------------------------------------------------------------
 # GEOGRAFIA PUNO
@@ -2150,54 +2151,417 @@ def credencial_publica_png(plantilla_id, persona_json, bases_json, url_qr):
                  distrito=principal.get("distrito") or "")
     return _png(componer_credencial(datos, filas[0], url_qr, "frontal"))
 
+# ---------------------------------------------------------------------------
+# CONSTANCIA DE INSCRIPCION (descarga publica por DNI)
+# ---------------------------------------------------------------------------
+PERMITIR_DESCARGA_CONSTANCIA = True   # False para apagar el enlace ?constancia=1
+MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+            "setiembre", "octubre", "noviembre", "diciembre"]
+
+def _cfg(nombre, defecto=""):
+    return str(st.secrets.get(nombre, defecto)).strip()
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _imagen_remota(url):
+    return descargar_bytes(url) if url else None
+
+def _ultimos4(celular):
+    digitos = re.sub(r"\D", "", str(celular or ""))
+    return digitos[-4:] if len(digitos) >= 4 else ""
+
+def pdf_constancia(persona, bases, token, cred_id):
+    # Hoja A4 sin plantilla: se dibuja en memoria (pocos KB), no se guarda en ningun lado.
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import Paragraph, Table, TableStyle
+    from reportlab.lib.utils import ImageReader
+    from xml.sax.saxutils import escape
+
+    W, H = A4
+    ML = 2 * cm
+    ancho = W - 2 * ML
+    rojo, amarillo = colors.HexColor("#e30613"), colors.HexColor("#ffe600")
+    verde, oscuro = colors.HexColor("#1b7a2f"), colors.HexColor("#222222")
+    gris, claro = colors.HexColor("#555555"), colors.HexColor("#f4f4f4")
+    est = getSampleStyleSheet()
+    normal = ParagraphStyle("n", parent=est["Normal"], fontName="Helvetica", fontSize=11.5, leading=17,
+                            alignment=4)
+    celda = ParagraphStyle("c", parent=est["Normal"], fontName="Helvetica-Bold", fontSize=11, leading=14)
+    etiqueta = ParagraphStyle("e", parent=est["Normal"], fontName="Helvetica", fontSize=9.5, leading=14,
+                              textColor=gris)
+    aviso = ParagraphStyle("a", parent=est["Normal"], fontName="Helvetica", fontSize=8.5, leading=11,
+                           textColor=gris)
+    esc = lambda v: escape(str(v if v is not None else ""))
+
+    nombre = f'{persona.get("apellidos", "")} {persona.get("nombres", "")}'.strip().upper()
+    dni = str(persona.get("dni") or "").strip()
+    cargo = persona.get("cargo") or "Integrante"
+    nombres_bases = ", ".join(b["nombre_base"] for b in bases) or "No especificada"
+    principal = next((b for b in bases if b.get("id") == persona.get("base_id")), bases[0] if bases else {})
+    territorio = " / ".join(x for x in [principal.get("provincia"), principal.get("distrito")] if x) or "No especificado"
+    hoy = date.today()
+    lugar = _cfg("LUGAR_EMISION", "Puno")
+    organizacion = _cfg("NOMBRE_ORGANIZACION", "JUNTOS POR EL PERÚ")
+    comite = _cfg("NOMBRE_COMITE", "COMITÉ EJECUTIVO REGIONAL PUNO")
+    candidato = _cfg("CANDIDATO_NOMBRE", "Marcelino Tonconi Quispe")
+    candidato_cargo = _cfg("CANDIDATO_CARGO", "Candidato a Gobernador Regional de Puno · Segunda vuelta")
+
+    def leer(url):
+        # Imagen remota (logo, foto, firma) o None si no hay o no se pudo cargar.
+        try:
+            datos_img = _imagen_remota(url) if url else None
+            return ImageReader(io.BytesIO(datos_img)) if datos_img else None
+        except Exception:
+            logger.warning("No se pudo cargar una imagen para la constancia")
+            return None
+
+    def ajustar(texto, fuente, tam, ancho_max):
+        while tam > 6 and c.stringWidth(texto, fuente, tam) > ancho_max:
+            tam -= 0.5
+        return tam
+
+    logo = leer(_cfg("LOGO_URL"))
+    foto = leer(persona.get("foto_url"))
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    c.setTitle("Constancia de inscripción")
+
+    # Marca de agua: el logo muy tenue al centro de la hoja
+    if logo:
+        lw, lh = logo.getSize()
+        ancho_m = 11 * cm
+        c.saveState()
+        c.setFillAlpha(0.07)
+        c.drawImage(logo, (W - ancho_m) / 2, H * 0.30, width=ancho_m, height=ancho_m * lh / lw, mask="auto")
+        c.restoreState()
+
+    # Cabecera: amarillo con franja roja y verde
+    alto_cab = 3.1 * cm
+    c.setFillColor(amarillo)
+    c.rect(0, H - alto_cab, W, alto_cab, stroke=0, fill=1)
+    c.setFillColor(rojo)
+    c.rect(0, H - alto_cab - 0.18 * cm, W, 0.18 * cm, stroke=0, fill=1)
+    c.setFillColor(verde)
+    c.rect(0, H - alto_cab - 0.36 * cm, W, 0.18 * cm, stroke=0, fill=1)
+    if logo:
+        lw, lh = logo.getSize()
+        alto_l = 2.1 * cm
+        ancho_l = alto_l * lw / lh
+        y_l = H - alto_cab + (alto_cab - alto_l) / 2
+        c.drawImage(logo, 0.9 * cm, y_l, width=ancho_l, height=alto_l, mask="auto")
+        c.drawImage(logo, W - 0.9 * cm - ancho_l, y_l, width=ancho_l, height=alto_l, mask="auto")
+    c.setFillColor(rojo)
+    c.setFont("Helvetica-Bold", ajustar(organizacion, "Helvetica-Bold", 21, 11.5 * cm))
+    c.drawCentredString(W / 2, H - 1.2 * cm, organizacion)
+    c.setFillColor(verde)
+    c.setFont("Helvetica-Bold", 9.5)
+    c.drawCentredString(W / 2, H - 1.8 * cm, comite)
+    c.setFillColor(oscuro)
+    c.setFont("Helvetica-Bold", ajustar(candidato.upper(), "Helvetica-Bold", 11, 11.5 * cm))
+    c.drawCentredString(W / 2, H - 2.4 * cm, candidato.upper())
+    c.setFont("Helvetica", ajustar(candidato_cargo, "Helvetica", 8.5, 11.5 * cm))
+    c.drawCentredString(W / 2, H - 2.8 * cm, candidato_cargo)
+
+    # Titulo
+    c.setFillColor(oscuro)
+    c.setFont("Helvetica-Bold", 17)
+    titulo = "CONSTANCIA DE INSCRIPCIÓN"
+    c.drawCentredString(W / 2, H - 5.2 * cm, titulo)
+    tw = c.stringWidth(titulo, "Helvetica-Bold", 17)
+    c.setStrokeColor(oscuro)
+    c.setLineWidth(1.2)
+    c.line((W - tw) / 2, H - 5.3 * cm, (W + tw) / 2, H - 5.3 * cm)
+    c.setFillColor(rojo)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawCentredString(W / 2, H - 5.9 * cm, f"REGISTRO N.º CE-{hoy.year}-{str(cred_id)[:6].upper()}")
+
+    # Texto de apertura
+    y = H - 6.6 * cm
+    apertura = Paragraph(
+        f"Se deja constancia de que <b>{esc(nombre)}</b>, identificado(a) con DNI N.º {esc(dni)}, "
+        f"se encuentra inscrito(a) voluntariamente en <b>{esc(organizacion)}</b>, "
+        f"participando en la responsabilidad de <b>{esc(cargo)}</b>.", normal)
+    _, ah = apertura.wrap(ancho, H)
+    apertura.drawOn(c, ML, y - ah)
+    y = y - ah - 0.8 * cm
+
+    # Foto y datos
+    x_tab = ML + 3.9 * cm if foto else ML
+    ancho_tab = ancho - (3.9 * cm if foto else 0)
+    filas = [
+        [Paragraph("Apellidos y nombres:", etiqueta), Paragraph(esc(nombre), celda)],
+        [Paragraph("DNI:", etiqueta), Paragraph(esc(dni), celda)],
+        [Paragraph("Cargo o responsabilidad:", etiqueta), Paragraph(esc(cargo), celda)],
+        [Paragraph("Base o territorio:", etiqueta), Paragraph(esc(nombres_bases), celda)],
+        [Paragraph("Provincia / distrito:", etiqueta), Paragraph(esc(territorio), celda)],
+    ]
+    tabla = Table(filas, colWidths=[4.4 * cm, ancho_tab - 4.4 * cm])
+    tabla.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+                               ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                               ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+    _, th = tabla.wrap(ancho_tab, H)
+    c.setStrokeColor(colors.HexColor("#cccccc"))
+    c.setLineWidth(0.6)
+    c.line(ML, y + 0.25 * cm, W - ML, y + 0.25 * cm)
+    tabla.drawOn(c, x_tab, y - th)
+    if foto:
+        fx, fy, fw_, fh_ = ML, y - th, 3.3 * cm, th
+        iw, ih = foto.getSize()
+        k = max(fw_ / iw, fh_ / ih)
+        dw, dh = iw * k, ih * k
+        c.saveState()
+        marco = c.beginPath()
+        marco.rect(fx, fy, fw_, fh_)
+        c.clipPath(marco, stroke=0, fill=0)
+        c.drawImage(foto, fx + (fw_ - dw) / 2, fy + (fh_ - dh) / 2, width=dw, height=dh)
+        c.restoreState()
+        c.setStrokeColor(verde)
+        c.setLineWidth(1.6)
+        c.rect(fx, fy, fw_, fh_, stroke=1, fill=0)
+    y = y - th - 0.25 * cm
+    c.setStrokeColor(colors.HexColor("#cccccc"))
+    c.setLineWidth(0.6)
+    c.line(ML, y, W - ML, y)
+    y -= 0.7 * cm
+
+    # Texto de adscripcion
+    cuerpo = Paragraph(
+        f"Asimismo, se reconoce su adscripción a <b>{esc(nombres_bases)}</b> ({esc(territorio)}), "
+        f"otorgándosele el presente documento para los fines de coordinación e identidad política interna.",
+        normal)
+    _, ph = cuerpo.wrap(ancho, H)
+    cuerpo.drawOn(c, ML, y - ph)
+    y = y - ph - 0.7 * cm
+
+    # Aviso
+    nota = Paragraph("Este documento es de carácter honorífico y de organización interna. No acredita "
+                     "afiliación formal a ningún partido político, no otorga representación legal y no "
+                     "implica pronunciamiento sobre la organización política ni sus candidatos.", aviso)
+    _, nh = nota.wrap(ancho - 0.8 * cm, H)
+    c.setFillColor(claro)
+    c.roundRect(ML, y - nh - 0.5 * cm, ancho, nh + 0.5 * cm, 4, stroke=0, fill=1)
+    nota.drawOn(c, ML + 0.4 * cm, y - nh - 0.25 * cm)
+    y = y - nh - 1.4 * cm
+
+    # Fecha
+    c.setFillColor(oscuro)
+    c.setFont("Helvetica-Oblique", 11.5)
+    c.drawRightString(W - ML, y, f"{lugar}, {hoy.day} de {MESES_ES[hoy.month - 1]} de {hoy.year}.")
+
+    # Firmas: una o dos, segun lo configurado en Secrets
+    y_firma = 5.0 * cm
+
+    def firma(x, ancho_b, sufijo, cargo_defecto):
+        img = leer(_cfg(f"FIRMA{sufijo}_URL"))
+        if img:
+            fw, fh = img.getSize()
+            w_f = min(2.0 * cm * fw / fh, ancho_b - 0.6 * cm)
+            c.drawImage(img, x + (ancho_b - w_f) / 2, y_firma + 0.1 * cm, width=w_f, height=w_f * fh / fw,
+                        mask="auto")
+        c.setStrokeColor(oscuro)
+        c.setLineWidth(0.8)
+        c.line(x, y_firma, x + ancho_b, y_firma)
+        cx, yy = x + ancho_b / 2, y_firma - 0.45 * cm
+        nom = _cfg(f"FIRMANTE{sufijo}_NOMBRE").upper()
+        if nom:
+            c.setFillColor(oscuro)
+            c.setFont("Helvetica-Bold", ajustar(nom, "Helvetica-Bold", 9.5, ancho_b))
+            c.drawCentredString(cx, yy, nom)
+            yy -= 0.42 * cm
+        dni_f = _cfg(f"FIRMANTE{sufijo}_DNI")
+        if dni_f:
+            c.setFillColor(oscuro)
+            c.setFont("Helvetica", 8.5)
+            c.drawCentredString(cx, yy, f"DNI: {dni_f}")
+            yy -= 0.4 * cm
+        car = _cfg(f"FIRMANTE{sufijo}_CARGO", cargo_defecto)
+        c.setFillColor(gris)
+        c.setFont("Helvetica", ajustar(car, "Helvetica", 8.5, ancho_b))
+        c.drawCentredString(cx, yy, car)
+
+    if _cfg("FIRMA2_URL") or _cfg("FIRMANTE2_NOMBRE"):
+        firma(ML, 6.3 * cm, "", "Secretario(a) General")
+        firma(ML + 6.9 * cm, 6.3 * cm, "2", "")
+    else:
+        firma(ML, 9 * cm, "", "Secretario(a) General")
+
+    # QR de verificacion
+    qr_img = crear_qr(f"{APP_PUBLIC_URL}/?verificar={quote(token)}")
+    lado = 3.4 * cm
+    qx = W - ML - lado
+    c.drawImage(ImageReader(qr_img), qx, 3.9 * cm, width=lado, height=lado)
+    c.setFont("Helvetica-Bold", 7.5)
+    c.setFillColor(gris)
+    c.drawCentredString(qx + lado / 2, 3.45 * cm, "Escanear para verificar")
+    c.drawCentredString(qx + lado / 2, 3.1 * cm, "datos en línea")
+
+    c.setFont("Helvetica", 7.5)
+    c.drawString(ML, 1.2 * cm, f"Emitida el {hoy.strftime('%d/%m/%Y')}. Verifique su vigencia escaneando el código QR.")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def preparar_constancia(dni, cel4):
+    # Devuelve ("ok", pdf_bytes, nombre) o (motivo, None, None). No revela si fallo el DNI o el celular.
+    regs = (supabase.table("integrantes_base")
+            .select("id,nombres,apellidos,cargo,base_id,dni,celular,foto_url")
+            .eq("dni", dni).execute().data or [])
+    validos = [r for r in regs if _ultimos4(r.get("celular")) == cel4]
+    if not validos:
+        return "datos", None, None
+    persona = validos[0]
+    dni_p = str(persona["dni"]).strip()
+    cred = credencial_de_dni(dni_p)
+    if cred:
+        if cred["estado"] != "vigente":
+            return "revocada", None, None
+        if not token_reproducible(dni_p, cred):
+            return "antigua", None, None
+        cred_id = cred["id"]
+    else:
+        cred_id = str(uuid.uuid4())
+        emitir_credencial(persona, None, cred_id, token_credencial(dni_p, cred_id))
+    token = token_credencial(dni_p, cred_id)
+    bases = datos_bases_por_dni(dni_p)
+    return "ok", pdf_constancia(persona, bases, token, cred_id), nombre_completo(persona)
+
+
 token_qr = st.query_params.get("verificar")
 if token_qr:
-    st.subheader("Verificaci\u00f3n de credencial")
+    st.markdown("""
+    <style>
+    header[data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"],
+    [data-testid="collapsedControl"], footer, #MainMenu {display:none !important;}
+    .block-container {padding-top: 1.5rem !important; max-width: 420px !important;}
+    .vc {background:#fff;border:1px solid #e5e5e5;border-radius:14px;overflow:hidden;
+         font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#222;}
+    .vc-top {background:#e30613;color:#fff;padding:12px 14px;display:flex;justify-content:space-between;
+             align-items:center;font-weight:600;font-size:14px;}
+    .vc-top small {font-weight:400;font-size:12px;}
+    .vc-line {height:6px;background:#ffe600;}
+    .vc-body {display:flex;gap:12px;padding:14px;}
+    .vc-foto {width:84px;height:106px;border-radius:8px;object-fit:cover;background:#eee;flex-shrink:0;}
+    .vc-nom {font-size:17px;font-weight:600;margin:0;}
+    .vc-cargo {font-size:12px;color:#666;margin:2px 0 8px;}
+    .vc-lbl {font-size:11px;color:#888;margin:0;}
+    .vc-val {font-size:13px;margin:0 0 6px;word-break:break-word;}
+    .vc-ok {margin:0 14px 14px;padding:10px;background:#1fa83b;color:#fff;border-radius:8px;
+            text-align:center;font-size:13px;font-weight:600;}
+    .vc-bad {margin:0;padding:18px 14px;background:#b3261e;color:#fff;text-align:center;font-weight:600;}
+    .vc-msg {padding:14px;text-align:center;font-size:13px;color:#555;}
+    .vc-pie {padding:8px 14px;background:#f5f5f5;font-size:11px;color:#666;text-align:center;}
+    </style>
+    """, unsafe_allow_html=True)
+
+    def _tarjeta_error(titulo, mensaje):
+        st.markdown(
+            f'<div class="vc"><div class="vc-bad">{_html.escape(titulo)}</div>'
+            f'<div class="vc-msg">{_html.escape(mensaje)}</div></div>', unsafe_allow_html=True)
+
     try:
         cred = obtener_credencial(str(token_qr))
         if not cred:
-            st.error("C\u00f3digo no v\u00e1lido o credencial no encontrada.")
+            _tarjeta_error("CREDENCIAL NO V\u00c1LIDA", "El c\u00f3digo no existe o fue modificado.")
         elif cred["estado"] != "vigente":
-            st.warning("Esta credencial no est\u00e1 vigente.")
+            _tarjeta_error("CREDENCIAL NO VIGENTE", "Esta credencial fue anulada. Consulta con la base.")
         else:
             fila = (supabase.table("integrantes_base")
                     .select("nombres,apellidos,cargo,base_id,dni,foto_url")
                     .eq("id", cred["integrante_id"]).limit(1).execute().data or [])
             if not fila:
-                st.warning("No se encontr\u00f3 el registro asociado.")
+                _tarjeta_error("REGISTRO NO ENCONTRADO", "No se encontr\u00f3 la persona asociada.")
             else:
                 persona = fila[0]
                 nombres_bases = [b["nombre_base"] for b in datos_bases_por_dni(persona["dni"])]
-                st.success("Credencial vigente")
-                png = None
-                if cred.get("plantilla_id") and APP_PUBLIC_URL:
-                    try:
-                        png = credencial_publica_png(
-                            cred["plantilla_id"],
-                            json.dumps(persona, ensure_ascii=False, sort_keys=True),
-                            json.dumps(datos_bases_por_dni(persona["dni"]), ensure_ascii=False, sort_keys=True),
-                            f"{APP_PUBLIC_URL}/?verificar={quote(str(token_qr))}")
-                    except Exception:
-                        logger.exception("No se pudo mostrar la credencial en la verificacion publica")
-                # Datos en texto (foto, nombre, cargo y bases): DESACTIVADOS por ahora porque la
-                # credencial ya los muestra. Para reactivarlos pon MOSTRAR_DATOS_EN_VERIFICACION = True
-                # en config. Si la credencial no se pudo generar, se muestran como respaldo.
-                if MOSTRAR_DATOS_EN_VERIFICACION or not png:
-                    if persona.get("foto_url"):
-                        try:
-                            st.image(persona["foto_url"], width=220, caption="Fotograf\u00eda registrada")
-                        except Exception:
-                            pass
-                    st.write(f"**Integrante:** {nombre_completo(persona)}")
-                    st.write(f"**Cargo:** {persona.get('cargo') or 'Sin cargo'}")
-                    st.write(f"**Bases:** {', '.join(nombres_bases) if nombres_bases else 'No especificadas'}")
-                if png:
-                    st.image(png, caption="Credencial", use_container_width=True)
-                st.caption(f"Emitida el {str(cred.get('emitida_en', ''))[:10]}. "
-                           "Por privacidad, esta consulta p\u00fablica no muestra el DNI ni el tel\u00e9fono.")
+                esc = lambda v: _html.escape(str(v or ""))
+                foto = (f'<img class="vc-foto" src="{esc(persona.get("foto_url"))}">'
+                        if persona.get("foto_url") else '<div class="vc-foto"></div>')
+                dni_html = ""
+                if MOSTRAR_DNI_EN_VERIFICACION and persona.get("dni"):
+                    dni_html = f'<p class="vc-lbl">DNI</p><p class="vc-val">{esc(persona["dni"])}</p>'
+                st.markdown(f"""
+                <div class="vc">
+                  <div class="vc-top"><span>JUNTOS POR EL PER\u00da</span><small>\u2714 Verificado</small></div>
+                  <div class="vc-line"></div>
+                  <div class="vc-body">
+                    {foto}
+                    <div>
+                      <p class="vc-nom">{esc(nombre_completo(persona))}</p>
+                      <p class="vc-cargo">{esc(persona.get("cargo") or "Sin cargo")}</p>
+                      {dni_html}
+                      <p class="vc-lbl">Base</p>
+                      <p class="vc-val">{esc(", ".join(nombres_bases) if nombres_bases else "No especificada")}</p>
+                      <p class="vc-lbl">Emitida</p>
+                      <p class="vc-val">{esc(str(cred.get("emitida_en", ""))[:10])}</p>
+                    </div>
+                  </div>
+                  <div class="vc-ok">\u2714 CREDENCIAL VIGENTE</div>
+                  <div class="vc-pie">Consulta p\u00fablica de verificaci\u00f3n</div>
+                </div>
+                """, unsafe_allow_html=True)
     except Exception as e:
         error_supabase("No se pudo verificar la credencial.", e)
     st.stop()
+
+if st.query_params.get("constancia") is not None:
+    st.markdown("""
+    <style>
+    header[data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"],
+    [data-testid="collapsedControl"], footer, #MainMenu {display:none !important;}
+    .block-container {padding-top: 1.5rem !important; max-width: 460px !important;}
+    .cn-top {background:#e30613;color:#fff;padding:14px;border-radius:12px 12px 0 0;font-weight:600;font-size:15px;}
+    .cn-line {height:6px;background:#ffe600;margin-bottom:14px;}
+    </style>
+    <div class="cn-top">JUNTOS POR EL PERÚ</div><div class="cn-line"></div>
+    """, unsafe_allow_html=True)
+    st.subheader("Descarga tu constancia")
+    if not PERMITIR_DESCARGA_CONSTANCIA:
+        st.info("La descarga de constancias no está disponible por ahora.")
+        st.stop()
+    if not APP_PUBLIC_URL:
+        st.error("Falta configurar APP_PUBLIC_URL en Secrets.")
+        st.stop()
+    st.caption("Escribe tu DNI y los últimos 4 dígitos del celular que registraste en tu base.")
+    with st.form("form_constancia"):
+        dni_in = st.text_input("DNI", max_chars=8, placeholder="12345678")
+        cel_in = st.text_input("Últimos 4 dígitos de tu celular", max_chars=4, placeholder="1234")
+        enviar = st.form_submit_button("Generar constancia")
+    if enviar:
+        st.session_state.pop("_constancia", None)
+        dni_c = re.sub(r"\D", "", dni_in)
+        cel_c = re.sub(r"\D", "", cel_in)
+        clave_c = f"constancia:{dni_c}"
+        espera = segundos_bloqueo(clave_c)
+        if espera:
+            st.error(f"Demasiados intentos. Prueba de nuevo en {espera // 60 + 1} minuto(s).")
+        elif len(dni_c) != 8 or len(cel_c) != 4:
+            st.warning("Escribe tu DNI de 8 dígitos y los últimos 4 dígitos de tu celular.")
+        else:
+            try:
+                motivo, pdf, nombre_c = preparar_constancia(dni_c, cel_c)
+                if motivo == "ok":
+                    limpiar_fallos(clave_c)
+                    st.session_state["_constancia"] = (dni_c, nombre_c, pdf)
+                elif motivo == "datos":
+                    registrar_fallo(clave_c)
+                    st.error("No encontramos a nadie con esos datos. Revisa tu DNI y el celular registrado, "
+                             "o consulta con el responsable de tu base.")
+                else:
+                    st.warning("Tu constancia no está disponible. Consulta con el responsable de tu base.")
+            except Exception as e:
+                error_supabase("No se pudo generar la constancia.", e)
+    guardada = st.session_state.get("_constancia")
+    if guardada:
+        st.success(f"Constancia lista: {guardada[1]}")
+        st.download_button("Descargar constancia (PDF)", data=guardada[2],
+                           file_name=f"constancia_{guardada[0]}.pdf", mime="application/pdf")
+    st.stop()
+
  
  
 # ---------------------------------------------------------------------
