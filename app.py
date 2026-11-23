@@ -596,6 +596,17 @@ input::placeholder, textarea::placeholder { color: #6E7B88 !important; -webkit-t
 </style>
 """, unsafe_allow_html=True)
 
+# Color de la barra del navegador en el celular (Chrome Android): la pinta del
+# mismo oscuro que la app. Si el navegador no lo admite, simplemente se ignora.
+import streamlit.components.v1 as _components
+_components.html(
+    "<script>try{var d=window.parent.document,m=d.querySelector('meta[name=\"theme-color\"]');"
+    "if(!m){m=d.createElement('meta');m.name='theme-color';d.head.appendChild(m);}"
+    "m.content='#0D1117';}catch(e){}</script>", height=0)
+st.markdown("""<style>
+[data-testid="stElementContainer"]:has(iframe[height="0"]) { position:absolute; height:0; margin:0; overflow:hidden; }
+</style>""", unsafe_allow_html=True)
+
 # ---------------------------------------------------------------------
 # CONFIGURACION Y CONEXION
 # ---------------------------------------------------------------------
