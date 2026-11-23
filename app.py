@@ -592,34 +592,6 @@ input::placeholder, textarea::placeholder { color: #8FA3A7 !important; -webkit-t
 [data-testid="stFileUploader"] button { background: #FFFFFF !important; border: 1px solid var(--line) !important; }
 [data-testid="stExpander"] summary, [data-testid="stExpander"] * { color: #263B40 !important; }
 [data-testid="stCheckbox"] label, [data-testid="stRadio"] label { color: #263B40 !important; }
-
-/* ===== PANEL LATERAL AZUL (colores tomados de la maqueta) ===== */
-[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, #003988 0%, #00327B 55%, #002F72 100%) !important;
-  border-right: 1px solid #002A66 !important;
-}
-[data-testid="stSidebar"] .sidebar-brand .logo {
-  background: linear-gradient(145deg, #FFD23F, #F2B705) !important;
-  box-shadow: 0 4px 14px rgba(0,0,0,.25) !important;
-}
-[data-testid="stSidebar"] .sidebar-brand .title { color: #FFFFFF !important; }
-[data-testid="stSidebar"] .sidebar-brand .sub { color: #B9D4F5 !important; }
-[data-testid="stSidebar"] .sidebar-section-label { color: #8FB4E8 !important; }
-[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.18) !important; }
-[data-testid="stSidebar"] [role="radiogroup"] label,
-[data-testid="stSidebar"] [role="radiogroup"] label * { color: #D6E6FA !important; }
-[data-testid="stSidebar"] [role="radiogroup"] label:hover { background: rgba(255,255,255,.10) !important; }
-[data-testid="stSidebar"] [role="radiogroup"] label:hover * { color: #FFFFFF !important; }
-[data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"],
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-  background: #0A5BC4 !important;
-  border-color: #4A93E8 !important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] *,
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) * { color: #FFFFFF !important; }
-[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] svg {
-  color: #FFFFFF !important; fill: #FFFFFF !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
