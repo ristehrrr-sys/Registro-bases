@@ -3446,7 +3446,7 @@ if st.session_state.base_id is not None:
             celular = st.text_input("Celular (9 a 15 d\u00edgitos)")
             cargo_sel = st.selectbox("Cargo o condici\u00f3n", CARGOS)
             cargo_otro = st.text_input("Especifica el cargo") if cargo_sel == "Otro" else ""
-            foto = st.file_uploader("Subir fotograf\u00eda tama\u00f1o carnet, fondo blanco", type=["jpg", "jpeg", "png"])
+            foto = st.file_uploader("Subir fotograf\u00eda tama\u00f1o carnet (opcional)", type=["jpg", "jpeg", "png"])
             consentimiento = st.checkbox("Confirmo que la persona fue informada y autoriz\u00f3 el registro de sus datos y fotograf\u00eda, "
                 "y que su nombre, cargo y fotograf\u00eda se mostrar\u00e1n al escanear su credencial.")
             guardar = st.form_submit_button("Guardar integrante")
@@ -3460,8 +3460,6 @@ if st.session_state.base_id is not None:
                 st.warning("Celular inv\u00e1lido.")
             elif cargo_sel == "Otro" and not cargo_final:
                 st.warning("Especifica el cargo.")
-            elif foto is None:
-                st.warning("Sube la fotograf\u00eda tama\u00f1o carnet, fondo blanco.")
             elif not consentimiento:
                 st.warning("Confirma que existe autorizaci\u00f3n.")
             elif foto is not None and foto.size > MAX_IMG_BYTES:
