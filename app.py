@@ -14,6 +14,7 @@ import json
 import copy
 import html as _html
 import zipfile
+import gc
 from functools import lru_cache
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
@@ -69,7 +70,7 @@ st.markdown("""
   color-scheme: light;
 }
 
-/* Ocultar SOLO Share, lapiz, estrella, GitHub y menu ....
+/* Ocultar SOLO Share, lápiz, estrella, GitHub y menú ⋮.
    NO se oculta stToolbar ni stAppToolbar: pueden contener la flechita. */
 [data-testid="stToolbarActions"],
 [data-testid="stMainMenu"],
@@ -86,7 +87,7 @@ header a[href*="github.com"] {
   display: none !important;
 }
 
-/* Cabecera y barra transparentes, sin tocar su posicion */
+/* Cabecera y barra transparentes, sin tocar su posición */
 [data-testid="stHeader"],
 [data-testid="stToolbar"],
 [data-testid="stAppToolbar"] {
@@ -95,7 +96,7 @@ header a[href*="github.com"] {
   box-shadow: none !important;
 }
 
-/* Flechita del menu: todas las variantes segun version de Streamlit */
+/* Flechita del menú: todas las variantes según versión de Streamlit */
 [data-testid="stExpandSidebarButton"],
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
@@ -133,7 +134,7 @@ header a[href*="github.com"] {
   max-width: 1200px !important;
 }
 
-/* MENU LATERAL */
+/* MENÚ LATERAL */
 [data-testid="stSidebar"] {
   background: linear-gradient(180deg, #E5F5F5 0%, #DCEFEF 100%) !important;
   border-right: 1px solid var(--line) !important;
@@ -210,7 +211,7 @@ header a[href*="github.com"] {
   padding: 10px 8px 6px;
 }
 
-/* TIPOGRAFIA GENERAL */
+/* TIPOGRAFÍA GENERAL */
 h1, h2, h3, h4, p, span, label, .stMarkdown {
   color: var(--text) !important;
 }
@@ -335,7 +336,7 @@ hr {
   color: #FFFFFF !important;
 }
 
-/* BOTONES DE ELIMINACION */
+/* BOTONES DE ELIMINACIÓN */
 [class*="st-key-del_"]:not([class*="st-key-del_no_"]) button,
 [class*="st-key-eliminar_cred"] button,
 [class*="st-key-admin_delbtn_"] button {
@@ -357,7 +358,7 @@ hr {
   border-color: transparent !important;
 }
 
-/* METRICAS Y TARJETAS */
+/* MÉTRICAS Y TARJETAS */
 [data-testid="stMetric"] {
   background: var(--card) !important;
   border: 1px solid var(--line) !important;
@@ -479,7 +480,7 @@ hr {
   background: #FFFFFF !important;
 }
 
-/* ADAPTACION PARA CELULARES */
+/* ADAPTACIÓN PARA CELULARES */
 @media (max-width: 640px) {
   .block-container {
     padding-left: .75rem !important;
@@ -518,7 +519,7 @@ hr {
 .sb-lab { min-width:46px; flex:1 1 46px; text-align:center; font:.66rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:90px; }
 
-/* TARJETAS DE RESUMEN: icono arriba, etiqueta debajo, mismo tamano */
+/* TARJETAS DE RESUMEN: icono arriba, etiqueta debajo, mismo tamaño */
 .metric-card {
   flex-direction: column;
   justify-content: center;
@@ -638,7 +639,7 @@ DISTRITOS_PUNO = {
 PROVINCIAS = sorted(DISTRITOS_PUNO.keys())
 CARGOS = [
     "SECRETARIO(a) GENERAL",
-    "SECRETARIO(a) DE ORGANIZACI\u00d3N Y MOVILIZACION",
+    "SECRETARIO(a) DE ORGANIZACIÓN Y MOVILIZACION",
     "SECRETARIO(a) DE PRENSA Y PROPAGANDA",
     "SECRETARIO(a) DE LA MUJER",
     "SECRETARIO(a) DE JUVENTUDES",
@@ -756,6 +757,17 @@ def selector(opciones, clave):
                            type="primary" if st.session_state[estado] == op else "secondary")
     return st.session_state[estado]
  
+def _liberar_lote():
+    # Se ejecuta al pulsar cualquier boton de descarga de la tanda: borra de la memoria los
+    # archivos pesados (ZIP y PDF). Se conservan los contactos de WhatsApp y el resumen.
+    # Los QR no se afectan: viven en la base de datos, no en estos archivos.
+    archivos = st.session_state.get("lote_archivos")
+    if archivos:
+        for k in ("pdfs_ind", "zip", "pdf", "a4"):
+            archivos.pop(k, None)
+        archivos["liberado"] = True
+    gc.collect()
+
 def limpiar_sesion():
     for clave in list(st.session_state.keys()):
         if clave.startswith(("base_", "admin_", "mostrar_", "credencial_", "lote_")):
@@ -1758,7 +1770,7 @@ DISENOS_PREDEFINIDOS = {
 # MAYUSCULAS, tal como esta registrado; valor: el texto que saldra impreso. En el sistema
 # la base conserva su nombre completo. Ejemplo (quita el "#" para activarlo):
 NOMBRES_CORTOS_CREDENCIAL = {
-    # "SECRETARIA DE SERIGRAFIA FASE DE TONCONI": "SERIGRAFIA TONCONI",
+    # "SECRETARIA DE SERIGRAFÍA FASE DE TONCONI": "SERIGRAFÍA TONCONI",
     # "IMAGEN INSTITUCIONAL, PROTOCOLO Y REDES SOCIALES": "IMAGEN Y REDES SOCIALES",
 }
 
@@ -2264,32 +2276,32 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
     with st.sidebar:
         st.markdown("""
         <div class="sidebar-brand">
-          <div class="logo">\U0001f3db\ufe0f</div>
+          <div class="logo">🏛️</div>
           <div>
             <div class="title">Registro de Bases</div>
-            <div class="sub">Panel de administraci\u00f3n</div>
+            <div class="sub">Panel de administración</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown('<div class="sidebar-section-label">Navegaci\u00f3n</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-section-label">Navegación</div>', unsafe_allow_html=True)
 
         menu_opciones = ["Resumen", "Bases", "Fotos", "Reuniones", "Credenciales", "Exportar", "Plantillas"]
         if st.session_state.get("admin_menu_actual") not in menu_opciones:
             st.session_state.admin_menu_actual = "Resumen"
 
         panel = st.radio(
-            "Men\u00fa principal",
+            "Menú principal",
             menu_opciones,
             key="admin_menu_actual",
             format_func=lambda x: {
-                "Resumen": "\U0001f4ca  Resumen",
-                "Bases": "\U0001f465  Bases",
-                "Fotos": "\U0001f4f7  Revisar fotos",
-                "Reuniones": "\U0001f4c5  Reuniones",
-                "Credenciales": "\U0001faaa  Credenciales",
-                "Exportar": "\U0001f4e4  Exportar",
-                "Plantillas": "\U0001f3a8  Plantillas",
+                "Resumen": "📊  Resumen",
+                "Bases": "👥  Bases",
+                "Fotos": "📷  Revisar fotos",
+                "Reuniones": "📅  Reuniones",
+                "Credenciales": "🪪  Credenciales",
+                "Exportar": "📤  Exportar",
+                "Plantillas": "🎨  Plantillas",
             }.get(x, x),
             label_visibility="collapsed",
         )
@@ -2300,61 +2312,61 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             "Credenciales": ["Una persona", "Varias personas", "Generadas"],
         }
         if panel in sub_opciones:
-            st.markdown('<div class="sidebar-section-label">Secci\u00f3n</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sidebar-section-label">Sección</div>', unsafe_allow_html=True)
             opciones_sub = sub_opciones[panel]
             clave_sub = "admin_sub_bases_actual" if panel == "Bases" else "admin_sub_cred_actual"
             if st.session_state.get(clave_sub) not in opciones_sub:
                 st.session_state[clave_sub] = opciones_sub[0]
             iconos_sub = {
-                "Integrantes": "\U0001f464  Integrantes",
-                "Crear base": "\u2795  Crear base",
-                "Administrar": "\u2699\ufe0f  Administrar",
-                "Una persona": "\U0001faaa  Una persona",
-                "Varias personas": "\U0001f465  Varias personas",
-                "Generadas": "\U0001f4cb  Generadas",
+                "Integrantes": "👤  Integrantes",
+                "Crear base": "➕  Crear base",
+                "Administrar": "⚙️  Administrar",
+                "Una persona": "🪪  Una persona",
+                "Varias personas": "👥  Varias personas",
+                "Generadas": "📋  Generadas",
             }
             sub = st.radio(
-                "Submen\u00fa",
+                "Submenú",
                 opciones_sub,
                 key=clave_sub,
                 format_func=lambda x: iconos_sub.get(x, x),
                 label_visibility="collapsed",
             )
 
-        with st.expander("\U0001f5a5\ufe0f Memoria del servidor"):
+        with st.expander("🖥️ Memoria del servidor"):
             _m = memoria_servidor()
             if _m["proceso"] is None:
                 st.caption("No se puede medir en este servidor.")
             else:
                 _ref = _m["limite"] or 2700.0
                 st.progress(min(1.0, _m["proceso"] / _ref))
-                st.caption(f"App ahora: {_m['proceso']:.0f} MB \u00b7 pico: {(_m['pico'] or _m['proceso']):.0f} MB")
+                st.caption(f"App ahora: {_m['proceso']:.0f} MB · pico: {(_m['pico'] or _m['proceso']):.0f} MB")
                 if _m["contenedor"] is not None:
                     st.caption(f"Contenedor completo: {_m['contenedor']:.0f} MB")
                 st.caption(f"Referencia: hasta ~{_ref:.0f} MB. Si el pico pasa de ~1500 MB, avisa.")
                 if _m["proceso"] > 1500:
-                    st.warning("La memoria est\u00e1 alta. Evita generar muchas credenciales juntas o reinicia la app.")
+                    st.warning("La memoria está alta. Evita generar muchas credenciales juntas o reinicia la app.")
             st.button("Actualizar", key="memoria_actualizar", use_container_width=True)
 
         st.markdown("---")
-        if st.button("Cerrar sesi\u00f3n", use_container_width=True, key="sidebar_logout_admin"):
+        if st.button("Cerrar sesión", use_container_width=True, key="sidebar_logout_admin"):
             limpiar_sesion()
             st.rerun()
 
     # ------------------------------------------------------------------
     # CONTENIDO PRINCIPAL
     # ------------------------------------------------------------------
-    st.markdown('<div class="chip"><span class="dot"></span>Administrador \u00b7 en l\u00ednea</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chip"><span class="dot"></span>Administrador · en línea</div>', unsafe_allow_html=True)
     if not str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip():
-        st.warning("Est\u00e1s usando ADMIN_PASSWORD en texto plano. Conviene reemplazarlo por ADMIN_PASSWORD_HASH en Secrets.")
+        st.warning("Estás usando ADMIN_PASSWORD en texto plano. Conviene reemplazarlo por ADMIN_PASSWORD_HASH en Secrets.")
 
     if panel == "Resumen":
-        st.subheader("\U0001f4ca Resumen estad\u00edstico")
+        st.subheader("📊 Resumen estadístico")
         try:
             bases_resumen = cargar_bases()
             integrantes_resumen = cargar_integrantes()
             if not bases_resumen:
-                st.info("Todav\u00eda no hay bases registradas.")
+                st.info("Todavía no hay bases registradas.")
             else:
                 provincias_resumen = sorted({str(b.get("provincia") or "") for b in bases_resumen if b.get("provincia")})
                 f1, f2 = st.columns(2)
@@ -2380,8 +2392,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     bid = str(base.get("id"))
                     datos_resumen.append({
                         "Base": base.get("nombre_base") or "Sin nombre",
-                        "Provincia": base.get("provincia") or "\u2014",
-                        "Distrito": base.get("distrito") or "\u2014",
+                        "Provincia": base.get("provincia") or "—",
+                        "Distrito": base.get("distrito") or "—",
                         "Militantes": conteo_militantes[bid],
                         "Total de integrantes": conteo_total[bid],
                     })
@@ -2389,12 +2401,12 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 total_militantes = sum(x["Militantes"] for x in datos_resumen)
                 total_integrantes = sum(x["Total de integrantes"] for x in datos_resumen)
 
-                # Tarjetas de m\u00e9tricas con glow
+                # Tarjetas de métricas con glow
                 c1, c2, c3, c4 = st.columns(4)
                 with c1:
                     st.markdown(f"""
                     <div class="metric-card">
-                      <div class="metric-icon green">\U0001f3db\ufe0f</div>
+                      <div class="metric-icon green">🏛️</div>
                       <div class="metric-info">
                         <div class="label">Bases</div>
                         <div class="value">{len(datos_resumen)}</div>
@@ -2403,7 +2415,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 with c2:
                     st.markdown(f"""
                     <div class="metric-card">
-                      <div class="metric-icon yellow">\u2b50</div>
+                      <div class="metric-icon yellow">⭐</div>
                       <div class="metric-info">
                         <div class="label">Militantes</div>
                         <div class="value">{total_militantes}</div>
@@ -2412,7 +2424,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 with c3:
                     st.markdown(f"""
                     <div class="metric-card">
-                      <div class="metric-icon blue">\U0001f465</div>
+                      <div class="metric-icon blue">👥</div>
                       <div class="metric-info">
                         <div class="label">Integrantes</div>
                         <div class="value">{total_integrantes}</div>
@@ -2422,7 +2434,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     prom = round(total_integrantes / len(datos_resumen), 1) if datos_resumen else 0
                     st.markdown(f"""
                     <div class="metric-card">
-                      <div class="metric-icon red">\U0001f4c8</div>
+                      <div class="metric-icon red">📈</div>
                       <div class="metric-info">
                         <div class="label">Integrantes por base</div>
                         <div class="value">{prom}</div>
@@ -2438,7 +2450,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 grafica_supabase("Total de integrantes por base",
                                  [(x["Base"], x["Total de integrantes"]) for x in datos_resumen], "#3ecf8e")
         except Exception as e:
-            error_supabase("No se pudo generar el resumen estad\u00edstico.", e)
+            error_supabase("No se pudo generar el resumen estadístico.", e)
 
     if panel == "Bases" and sub == "Crear base":
         st.subheader("Crear una base o comando")
@@ -2686,7 +2698,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
     if panel == "Fotos":
         st.subheader("Revisar fotos")
         if not foto_revision_disponible():
-            st.info("Para usar la revisi\u00f3n de fotos, ejecuta una vez este SQL en Supabase (SQL Editor) y vuelve a abrir esta pantalla.")
+            st.info("Para usar la revisión de fotos, ejecuta una vez este SQL en Supabase (SQL Editor) y vuelve a abrir esta pantalla.")
             st.code("alter table integrantes_base\n  add column if not exists foto_estado text default 'pendiente',\n  add column if not exists foto_aviso text,\n  add column if not exists foto_motivo text;", language="sql")
         else:
             try:
@@ -2714,7 +2726,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                          and (not solo_aviso or f.get("foto_aviso"))]
                 por_pag = 12
                 paginas = max(1, -(-len(lista) // por_pag))
-                pag = st.number_input("P\u00e1gina", min_value=1, max_value=paginas, value=1, step=1, key="fotos_pag") if paginas > 1 else 1
+                pag = st.number_input("Página", min_value=1, max_value=paginas, value=1, step=1, key="fotos_pag") if paginas > 1 else 1
                 if not lista:
                     st.info("No hay fotos con este filtro.")
                 trozo = lista[(pag - 1) * por_pag: pag * por_pag]
@@ -2725,7 +2737,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             with st.container(border=True):
                                 st.image(f["foto_url"], use_container_width=True)
                                 st.markdown(f"**{_html.escape(nombre_completo(f))}**")
-                                st.caption(f"{mapa_bases.get(f['base_id'], '')} \u00b7 DNI {f.get('dni', '')}")
+                                st.caption(f"{mapa_bases.get(f['base_id'], '')} · DNI {f.get('dni', '')}")
                                 if f.get("foto_aviso"):
                                     st.warning(f["foto_aviso"])
                                 if f["foto_estado"] == "rechazada":
@@ -2743,7 +2755,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                         supabase.table("integrantes_base").update({"foto_estado": "pendiente", "foto_motivo": None}).eq("id", f["id"]).execute()
                                         st.rerun()
             except Exception as e:
-                error_supabase("No se pudo cargar la revisi\u00f3n de fotos.", e)
+                error_supabase("No se pudo cargar la revisión de fotos.", e)
 
     if panel == "Reuniones":
         st.subheader("Reuniones y asistencia")
@@ -3192,23 +3204,28 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                            "\u00abCredenciales generadas\u00bb y gen\u00e9ralas de nuevo una sola vez.")
                         st.caption("Si pierdes los archivos, puedes volver a descargarlas con la opci\u00f3n "
                                    "\u00abVolver a descargar las ya generadas\u00bb.")
+                        if archivos.get("liberado"):
+                            st.info("Descarga iniciada y archivos liberados de la memoria. Si no se descarg\u00f3, usa "
+                                    "\u00abVolver a descargar las ya generadas\u00bb: saldr\u00e1n los mismos carnets con el mismo QR.")
+                        else:
+                            st.caption("Al pulsar un bot\u00f3n de descarga, los archivos se borran de la memoria del servidor.")
                         d0, d1, d2, d3 = st.columns(4)
                         if archivos.get("pdfs_ind"):
                             d0.download_button("Descargar ZIP de PDFs (uno por persona)", archivos["pdfs_ind"],
                                                f'credenciales_pdf_{archivos["sello"]}.zip', "application/zip",
-                                               key="dl_lote_pdfs_ind")
+                                               key="dl_lote_pdfs_ind", on_click=_liberar_lote)
                         if archivos.get("zip"):
                             d1.download_button("Descargar ZIP (PNG)", archivos["zip"],
                                                f'credenciales_{archivos["sello"]}.zip', "application/zip",
-                                               key="dl_lote_zip")
+                                               key="dl_lote_zip", on_click=_liberar_lote)
                         if archivos.get("pdf"):
                             d2.download_button("Descargar PDF", archivos["pdf"],
                                                f'credenciales_{archivos["sello"]}.pdf', "application/pdf",
-                                               key="dl_lote_pdf")
+                                               key="dl_lote_pdf", on_click=_liberar_lote)
                         if archivos.get("a4"):
                             d3.download_button("Descargar PDF A4 (imprimir)", archivos["a4"],
                                                f'credenciales_A4_{archivos["sello"]}.pdf', "application/pdf",
-                                               key="dl_lote_a4")
+                                               key="dl_lote_a4", on_click=_liberar_lote)
                         if archivos.get("sin_pdf"):
                             st.caption("Los PDF requieren instalar reportlab (agr\u00e9galo a requirements.txt).")
                         if archivos.get("contactos"):
