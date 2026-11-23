@@ -28,87 +28,13 @@ import requests
 import qrcode
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-# =====================================================================
-# PALETAS DE COLOR  (elige una con PALETA_POR_DEFECTO o desde el menú
-# lateral: "🎨 Apariencia"). Para crear la tuya basta añadir una línea:
-#   "Mi color": ("#COLOR_PRINCIPAL", "#COLOR_DEL_TEXTO"),
-# =====================================================================
-PALETAS = {
-    "Turquesa":      ("#00B8AE", "#0B2A2E"),
-    "Azul real":     ("#0A55FF", "#0A1A3F"),
-    "Azul cielo":    ("#0096F0", "#06263D"),
-    "Índigo":        ("#4338FF", "#14123F"),
-    "Violeta":       ("#8A2BFF", "#1F0F45"),
-    "Rosa frambuesa": ("#F0126E", "#3A0A22"),
-    "Rojo intenso":  ("#E01B2F", "#3A0C12"),
-    "Naranja":       ("#F25C00", "#3A1A06"),
-    "Dorado":        ("#E39A00", "#2E2100"),
-    "Verde esmeralda": ("#00A862", "#07301E"),
-    "Verde lima":    ("#5DB300", "#1B2E05"),
-}
-PALETA_POR_DEFECTO = "Turquesa"
-
-
-def _mezcla(hex1, hex2, t):
-    """Mezcla hex1 con hex2; t=0 -> hex1, t=1 -> hex2."""
-    a = [int(hex1[i:i + 2], 16) for i in (1, 3, 5)]
-    b = [int(hex2[i:i + 2], 16) for i in (1, 3, 5)]
-    return "#%02X%02X%02X" % tuple(round(x + (y - x) * t) for x, y in zip(a, b))
-
-
-def _tokens_paleta(nombre):
-    acc, txt = PALETAS.get(nombre, PALETAS[PALETA_POR_DEFECTO])
-    W, K = "#FFFFFF", "#000000"
-    return {
-        "#20B8B0": acc,
-        "#159E9A": _mezcla(acc, K, .15),
-        "#117C7A": _mezcla(acc, K, .35),
-        "#087E79": _mezcla(acc, K, .45),
-        "#42D6CD": _mezcla(acc, W, .25),
-        "#38D3C9": _mezcla(acc, W, .18),
-        "#E0F7F5": _mezcla(acc, W, .84),
-        "#E6F8F6": _mezcla(acc, W, .90),
-        "#C9EFEC": _mezcla(acc, W, .70),
-        "#A8DFDB": _mezcla(acc, W, .45),
-        "#BCE9E5": _mezcla(acc, W, .58),
-        "#B9E3E0": _mezcla(acc, W, .50),
-        "#F1F7F8": _mezcla(acc, W, .965),
-        "#F7FAFB": _mezcla(acc, W, .985),
-        "#EAF5F5": _mezcla(acc, W, .93),
-        "#E5F5F5": _mezcla(acc, W, .86),
-        "#DCEFEF": _mezcla(acc, W, .74),
-        "#D5E5E7": _mezcla(acc, W, .68),
-        "#E5EFF0": _mezcla(acc, W, .84),
-        "#263B40": txt,
-        "#657D82": _mezcla(txt, W, .30),
-        "#526D72": _mezcla(txt, W, .12),
-        "#66858A": _mezcla(txt, W, .32),
-        "#8FA3A7": _mezcla(txt, W, .50),
-    }
-
-
-def _aplicar_paleta(css, nombre):
-    """Cambia los colores turquesa del CSS por los de la paleta elegida."""
-    tok = _tokens_paleta(nombre)
-    acc = tok["#20B8B0"]
-    rgb = ",".join(str(int(acc[i:i + 2], 16)) for i in (1, 3, 5))
-    css = css.replace("rgba(32,184,176,", "rgba(" + rgb + ",")
-    return re.sub(r"#[0-9A-Fa-f]{6}",
-                  lambda m: tok.get(m.group(0).upper(), m.group(0)), css)
-
-
-_PALETA = st.session_state.get("paleta_ui", PALETA_POR_DEFECTO)
-if _PALETA not in PALETAS:
-    _PALETA = PALETA_POR_DEFECTO
-_T = _tokens_paleta(_PALETA)
-
 try:
     for _k, _v in {
-        "theme.base": "light",
-        "theme.primaryColor": _T["#20B8B0"],
-        "theme.backgroundColor": _T["#F1F7F8"],
-        "theme.secondaryBackgroundColor": _T["#EAF5F5"],
-        "theme.textColor": _T["#263B40"],
+        "theme.base": "dark",
+        "theme.primaryColor": "#20B8B0",
+        "theme.backgroundColor": "#0D1117",
+        "theme.secondaryBackgroundColor": "#161B22",
+        "theme.textColor": "#E6EDF3",
     }.items():
         st._config.set_option(_k, _v)
 except Exception:
@@ -121,7 +47,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown(_aplicar_paleta("""
+st.markdown("""
 <style>
 /* =========================================================
    TURQUESA EJECUTIVO
@@ -130,19 +56,19 @@ st.markdown(_aplicar_paleta("""
 :root {
   --acc: #20B8B0;
   --acc2: #159E9A;
-  --acc-dark: #117C7A;
-  --acc-light: #E0F7F5;
-  --bg: #F1F7F8;
-  --bg2: #F7FAFB;
-  --card: #FFFFFF;
-  --card2: #EAF5F5;
-  --line: #D5E5E7;
-  --text: #263B40;
-  --muted: #657D82;
-  --red: #DC3545;
+  --acc-dark: #4FD8CE;
+  --acc-light: #12393A;
+  --bg: #0D1117;
+  --bg2: #0F141B;
+  --card: #161B22;
+  --card2: #1B222C;
+  --line: #30363D;
+  --text: #E6EDF3;
+  --muted: #9AA5B1;
+  --red: #F85149;
   --yellow: #E5A323;
-  --blue: #3185C7;
-  color-scheme: light;
+  --blue: #58A6FF;
+  color-scheme: dark;
 }
 
 /* Ocultar SOLO Share, lápiz, estrella, GitHub y menú ⋮.
@@ -185,8 +111,8 @@ header a[href*="github.com"] {
 [data-testid="stSidebarCollapsedControl"] svg,
 [data-testid="collapsedControl"] svg,
 [data-testid="stSidebarCollapseButton"] svg {
-  color: #117C7A !important;
-  fill: #117C7A !important;
+  color: #4FD8CE !important;
+  fill: #4FD8CE !important;
 }
 [data-testid="stExpandSidebarButton"]:hover,
 [data-testid="stSidebarCollapsedControl"]:hover,
@@ -211,7 +137,7 @@ header a[href*="github.com"] {
 
 /* MENÚ LATERAL */
 [data-testid="stSidebar"] {
-  background: linear-gradient(180deg, #E5F5F5 0%, #DCEFEF 100%) !important;
+  background: linear-gradient(180deg, #0A0E14 0%, #10161E 100%) !important;
   border-right: 1px solid var(--line) !important;
 }
 [data-testid="stSidebar"] > div:first-child {
@@ -225,7 +151,7 @@ header a[href*="github.com"] {
   border-radius: 10px !important;
   padding: 0.65rem 0.85rem !important;
   margin: 3px 0 !important;
-  color: #526D72 !important;
+  color: #B4BEC9 !important;
   font-weight: 500 !important;
   font-size: 0.92rem !important;
   transition: background .18s ease, color .18s ease !important;
@@ -233,13 +159,13 @@ header a[href*="github.com"] {
 }
 [data-testid="stSidebar"] [role="radiogroup"] label:hover {
   background: rgba(32,184,176,.12) !important;
-  color: #117C7A !important;
+  color: #4FD8CE !important;
 }
 [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"],
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-  background: #C9EFEC !important;
-  color: #087E79 !important;
-  border-color: #A8DFDB !important;
+  background: #1A4D4B !important;
+  color: #7DEDE4 !important;
+  border-color: #2B7370 !important;
   font-weight: 700 !important;
 }
 [data-testid="stSidebar"] hr {
@@ -269,19 +195,19 @@ header a[href*="github.com"] {
 .sidebar-brand .title {
   font-weight: 800;
   font-size: 1.02rem;
-  color: #263B40;
+  color: #E6EDF3;
   line-height: 1.2;
 }
 .sidebar-brand .sub {
   font-size: 0.72rem;
-  color: #657D82;
+  color: #9AA5B1;
   margin-top: 1px;
 }
 .sidebar-section-label {
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: .12em;
-  color: #66858A;
+  color: #8B98A5;
   text-transform: uppercase;
   padding: 10px 8px 6px;
 }
@@ -335,7 +261,7 @@ hr {
   font-weight: 800;
   font-size: 1.04rem;
   line-height: 1.2;
-  color: #263B40;
+  color: #E6EDF3;
 }
 .tt .s {
   font-size: .78rem;
@@ -351,12 +277,12 @@ hr {
   gap: 8px;
   padding: 5px 12px;
   border-radius: 999px;
-  background: #E0F7F5;
-  border: 1px solid #BCE9E5;
+  background: #12393A;
+  border: 1px solid #256664;
   font-size: .82rem;
   font-weight: 600;
   margin: 0 0 12px;
-  color: #117C7A !important;
+  color: #4FD8CE !important;
 }
 .dot {
   width: 8px;
@@ -370,10 +296,10 @@ hr {
 .stButton > button,
 .stDownloadButton > button,
 .stFormSubmitButton > button {
-  border: 1px solid #B9E3E0 !important;
+  border: 1px solid #2A6967 !important;
   border-radius: 10px !important;
-  background: #FFFFFF !important;
-  color: #117C7A !important;
+  background: #161B22 !important;
+  color: #4FD8CE !important;
   font-weight: 650 !important;
   font-size: .9rem !important;
   min-height: 2.45rem;
@@ -385,9 +311,9 @@ hr {
 .stButton > button:hover,
 .stDownloadButton > button:hover,
 .stFormSubmitButton > button:hover {
-  background: #E6F8F6 !important;
+  background: #164342 !important;
   border-color: #20B8B0 !important;
-  color: #087E79 !important;
+  color: #7DEDE4 !important;
   box-shadow: 0 3px 9px rgba(32,184,176,.12) !important;
 }
 
@@ -398,7 +324,7 @@ hr {
 [data-testid="stBaseButton-primaryFormSubmit"] {
   background: #20B8B0 !important;
   border-color: #20B8B0 !important;
-  color: #FFFFFF !important;
+  color: #04201E !important;
   font-weight: 700 !important;
   box-shadow: 0 3px 8px rgba(32,184,176,.18) !important;
 }
@@ -408,21 +334,21 @@ hr {
 [data-testid="stBaseButton-primaryFormSubmit"]:hover {
   background: #159E9A !important;
   border-color: #159E9A !important;
-  color: #FFFFFF !important;
+  color: #04201E !important;
 }
 
 /* BOTONES DE ELIMINACIÓN */
 [class*="st-key-del_"]:not([class*="st-key-del_no_"]) button,
 [class*="st-key-eliminar_cred"] button,
 [class*="st-key-admin_delbtn_"] button {
-  background: #FFFFFF !important;
+  background: #161B22 !important;
   color: var(--red) !important;
   border-color: rgba(220,53,69,.4) !important;
 }
 [class*="st-key-del_"]:not([class*="st-key-del_no_"]) button:hover,
 [class*="st-key-eliminar_cred"] button:hover,
 [class*="st-key-admin_delbtn_"] button:hover {
-  background: #FFF0F1 !important;
+  background: #3B1D22 !important;
   border-color: var(--red) !important;
 }
 [class*="st-key-del_si_"] button,
@@ -444,7 +370,7 @@ hr {
 [data-testid="stMetricLabel"] { color: var(--muted) !important; }
 [data-testid="stMetricValue"] {
   font-weight: 800 !important;
-  color: #263B40 !important;
+  color: #E6EDF3 !important;
 }
 .metric-card {
   background: var(--card);
@@ -471,10 +397,10 @@ hr {
   font-size: 1.55rem;
   flex-shrink: 0;
 }
-.metric-icon.green  { background: #DDF6E9; color: #159E70; }
-.metric-icon.yellow { background: #FFF4D9; color: #C58B18; }
-.metric-icon.red    { background: #FDE6E8; color: #DC3545; }
-.metric-icon.blue   { background: #E2F0FC; color: #3185C7; }
+.metric-icon.green  { background: #123524; color: #3FB950; }
+.metric-icon.yellow { background: #3A2F12; color: #E3B341; }
+.metric-icon.red    { background: #3B1D22; color: #F85149; }
+.metric-icon.blue   { background: #12263F; color: #58A6FF; }
 .metric-info .label {
   font-size: .8rem;
   color: var(--muted);
@@ -483,7 +409,7 @@ hr {
 .metric-info .value {
   font-size: 1.55rem;
   font-weight: 800;
-  color: #263B40;
+  color: #E6EDF3;
   line-height: 1.2;
   margin-top: 2px;
 }
@@ -497,10 +423,10 @@ hr {
   font-size: .9rem;
   margin-bottom: 5px;
 }
-.bar-header b { color: #263B40; }
+.bar-header b { color: #E6EDF3; }
 .bar-track {
   height: 11px;
-  background: #E5EFF0;
+  background: #2A313A;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -543,7 +469,7 @@ hr {
 [data-baseweb="textarea"],
 [data-baseweb="select"] > div {
   border-radius: 9px !important;
-  background: #FFFFFF !important;
+  background: #161B22 !important;
   border-color: var(--line) !important;
 }
 [data-testid="stImage"] img { border-radius: 12px; }
@@ -552,7 +478,7 @@ hr {
   min-height: 44px !important;
   border: 1px solid var(--line) !important;
   border-radius: 10px !important;
-  background: #FFFFFF !important;
+  background: #161B22 !important;
 }
 
 /* ADAPTACIÓN PARA CELULARES */
@@ -580,19 +506,19 @@ hr {
 .sb-card { border:1px solid var(--line); border-radius:12px; background:var(--card);
   padding:14px 16px 10px; margin:6px 0 16px; box-shadow:0 3px 12px rgba(38,59,64,.035); }
 .sb-title { font:600 .68rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  letter-spacing:.08em; color:#6b7280; text-transform:uppercase; }
-.sb-total { font-size:1.6rem; font-weight:600; color:#263B40; line-height:1.2; margin-bottom:6px; }
+  letter-spacing:.08em; color:#9AA5B1; text-transform:uppercase; }
+.sb-total { font-size:1.6rem; font-weight:600; color:#E6EDF3; line-height:1.2; margin-bottom:6px; }
 .sb-scroll { overflow-x:auto; padding-bottom:4px; }
 .sb-plot { display:flex; align-items:flex-end; gap:14px; height:150px; min-width:100%;
   width:max-content; border-bottom:1px solid var(--line); padding:0 6px; }
 .sb-col { display:flex; flex-direction:column; justify-content:flex-end; align-items:center;
   height:100%; min-width:46px; flex:1 1 46px; }
-.sb-val { font:.7rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#6b7280; margin-bottom:3px; }
+.sb-val { font:.7rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#9AA5B1; margin-bottom:3px; }
 .sb-bar { width:10px; min-height:2px; border-radius:2px 2px 0 0; transition:height .4s ease, opacity .2s; }
 .sb-col:hover .sb-bar { opacity:.75; }
 .sb-labels { display:flex; gap:14px; width:max-content; min-width:100%; padding:6px 6px 0; }
 .sb-lab { min-width:46px; flex:1 1 46px; text-align:center; font:.66rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:90px; }
+  color:#9AA5B1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:90px; }
 
 /* TARJETAS DE RESUMEN: icono arriba, etiqueta debajo, mismo tamaño */
 .metric-card {
@@ -609,12 +535,12 @@ hr {
 .sb-h { display: block; }
 .sb-hrow { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .sb-hrow:last-child { border-bottom: 0; }
-.sb-hname { font: .74rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#374151;
+.sb-hname { font: .74rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#C9D1D9;
   overflow-wrap: anywhere; line-height: 1.3; margin-bottom: 5px; }
 .sb-hbar { display: flex; align-items: center; gap: 10px; }
-.sb-htrack { flex: 1; height: 8px; background: #E5EFF0; border-radius: 999px; overflow: hidden; }
+.sb-htrack { flex: 1; height: 8px; background: #2A313A; border-radius: 999px; overflow: hidden; }
 .sb-hfill { height: 100%; min-width: 2px; border-radius: 999px; transition: width .4s ease; }
-.sb-hval { font: .75rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#6b7280;
+.sb-hval { font: .75rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#9AA5B1;
   min-width: 1.6em; text-align: right; }
 
 /* Laptop / pantalla ancha: nombre completo a la izquierda y barra a la derecha */
@@ -645,30 +571,30 @@ hr {
   .sb-h { display: block; }
 }
 
-/* ===== FORZAR MODO CLARO (el celular en modo oscuro volvia todo negro) ===== */
-html, body, .stApp { color-scheme: light !important; }
+/* ===== FORZAR MODO OSCURO ===== */
+html, body, .stApp { color-scheme: dark !important; }
 .stApp, .stApp p, .stApp label, .stApp span, .stApp li,
 .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5,
 [data-testid="stMarkdownContainer"], [data-testid="stWidgetLabel"] * { color: var(--text); }
-[data-testid="stAlert"] { background: #FFF8E1 !important; }
-[data-testid="stAlert"] * { color: #263B40 !important; }
-[data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]) { background: #E8F3FC !important; }
-[data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) { background: #E6F7EE !important; }
-[data-testid="stAlert"]:has([data-testid="stAlertContentError"]) { background: #FDECEE !important; }
+[data-testid="stAlert"] { background: #3A2F12 !important; }
+[data-testid="stAlert"] * { color: #E6EDF3 !important; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]) { background: #12263F !important; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) { background: #11301F !important; }
+[data-testid="stAlert"]:has([data-testid="stAlertContentError"]) { background: #3B1D22 !important; }
 [data-baseweb="input"] input, [data-baseweb="textarea"] textarea,
 [data-baseweb="select"] *, [data-testid="stNumberInput"] input {
-  background-color: #FFFFFF !important; color: #263B40 !important; -webkit-text-fill-color: #263B40 !important; }
-input::placeholder, textarea::placeholder { color: #8FA3A7 !important; -webkit-text-fill-color: #8FA3A7 !important; }
-[data-baseweb="input"] > div, [data-baseweb="base-input"] { background: #FFFFFF !important; }
-[data-baseweb="popover"] *, [data-baseweb="menu"], [role="listbox"], [role="option"] { background: #FFFFFF !important; color: #263B40 !important; }
-[data-baseweb="select"] svg { fill: #657D82 !important; }
-[data-testid="stFileUploader"] section, [data-testid="stFileUploaderDropzone"] { background: #F7FAFB !important; border: 1px dashed var(--line) !important; }
-[data-testid="stFileUploader"] * { color: #263B40 !important; }
-[data-testid="stFileUploader"] button { background: #FFFFFF !important; border: 1px solid var(--line) !important; }
-[data-testid="stExpander"] summary, [data-testid="stExpander"] * { color: #263B40 !important; }
-[data-testid="stCheckbox"] label, [data-testid="stRadio"] label { color: #263B40 !important; }
+  background-color: #161B22 !important; color: #E6EDF3 !important; -webkit-text-fill-color: #E6EDF3 !important; }
+input::placeholder, textarea::placeholder { color: #6E7B88 !important; -webkit-text-fill-color: #6E7B88 !important; }
+[data-baseweb="input"] > div, [data-baseweb="base-input"] { background: #161B22 !important; }
+[data-baseweb="popover"] *, [data-baseweb="menu"], [role="listbox"], [role="option"] { background: #161B22 !important; color: #E6EDF3 !important; }
+[data-baseweb="select"] svg { fill: #9AA5B1 !important; }
+[data-testid="stFileUploader"] section, [data-testid="stFileUploaderDropzone"] { background: #0F141B !important; border: 1px dashed var(--line) !important; }
+[data-testid="stFileUploader"] * { color: #E6EDF3 !important; }
+[data-testid="stFileUploader"] button { background: #161B22 !important; border: 1px solid var(--line) !important; }
+[data-testid="stExpander"] summary, [data-testid="stExpander"] * { color: #E6EDF3 !important; }
+[data-testid="stCheckbox"] label, [data-testid="stRadio"] label { color: #E6EDF3 !important; }
 </style>
-""", _PALETA), unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------
 # CONFIGURACION Y CONEXION
@@ -1072,16 +998,18 @@ def botones_lista(base, miembros, clave):
  
 logger = logging.getLogger("registro_bases")
  
-# Colores vivos para las barras de las gráficas. Cada vez que inicias sesión
-# se eligen dos distintos al azar (una para cada gráfica).
-COLORES_BARRAS = ["#0A55FF", "#00A862", "#F25C00", "#8A2BFF", "#F0126E",
-                  "#00B8AE", "#E39A00", "#E01B2F", "#4338FF", "#5DB300"]
-
-def colores_barras():
-    # La clave empieza con "admin_", así limpiar_sesion() la borra al cerrar sesión.
-    if "admin_colores_barras" not in st.session_state:
-        st.session_state["admin_colores_barras"] = random.sample(COLORES_BARRAS, 2)
-    return st.session_state["admin_colores_barras"]
+# Degradados de tres colores para las barras del Resumen. Cada vez que entras a
+# "Resumen" se eligen dos distintos al azar (uno por gráfica).
+DEGRADADOS_BARRAS = [
+    "linear-gradient(90deg,#22D3EE,#818CF8,#E879F9)",  # Aurora boreal
+    "linear-gradient(90deg,#FBBF24,#FB7185,#C084FC)",  # Atardecer
+    "linear-gradient(90deg,#2DD4BF,#38BDF8,#6366F1)",  # Océano profundo
+    "linear-gradient(90deg,#A3E635,#34D399,#22D3EE)",  # Primavera
+    "linear-gradient(90deg,#F472B6,#C084FC,#60A5FA)",  # Chicle
+    "linear-gradient(90deg,#FACC15,#FB923C,#F43F5E)",  # Fuego
+    "linear-gradient(90deg,#60A5FA,#8B5CF6,#EC4899)",  # Galaxia
+    "linear-gradient(90deg,#34D399,#FBBF24,#FB7185)",  # Tropical
+]
 
 def grafica_supabase(titulo, items, color="#3ecf8e"):
     """Grafica de barras horizontales con el nombre COMPLETO de cada base.
@@ -2434,11 +2362,6 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     st.warning("La memoria está alta. Evita generar muchas credenciales juntas o reinicia la app.")
             st.button("Actualizar", key="memoria_actualizar", use_container_width=True)
 
-        with st.expander("🎨 Apariencia"):
-            st.selectbox("Paleta de colores", list(PALETAS.keys()),
-                         index=list(PALETAS.keys()).index(_PALETA),
-                         key="paleta_ui")
-
         st.markdown("---")
         if st.button("Cerrar sesión", use_container_width=True, key="sidebar_logout_admin"):
             limpiar_sesion()
@@ -2451,7 +2374,13 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
     if not str(st.secrets.get("ADMIN_PASSWORD_HASH", "")).strip():
         st.warning("Estás usando ADMIN_PASSWORD en texto plano. Conviene reemplazarlo por ADMIN_PASSWORD_HASH en Secrets.")
 
+    # Detecta si acabas de entrar a este panel (no cuando solo cambias un filtro).
+    _entra_panel = st.session_state.get("admin_panel_previo") != panel
+    st.session_state["admin_panel_previo"] = panel
+
     if panel == "Resumen":
+        if _entra_panel or "admin_degradados" not in st.session_state:
+            st.session_state["admin_degradados"] = random.sample(DEGRADADOS_BARRAS, 2)
         st.subheader("📊 Resumen estadístico")
         try:
             bases_resumen = cargar_bases()
@@ -2535,11 +2464,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown("### Militantes por base")
                 grafica_supabase("Militantes por base",
-                                 [(x["Base"], x["Militantes"]) for x in datos_resumen], colores_barras()[0])
+                                 [(x["Base"], x["Militantes"]) for x in datos_resumen], st.session_state["admin_degradados"][0])
 
                 st.markdown("### Total de integrantes por base")
                 grafica_supabase("Total de integrantes por base",
-                                 [(x["Base"], x["Total de integrantes"]) for x in datos_resumen], colores_barras()[1])
+                                 [(x["Base"], x["Total de integrantes"]) for x in datos_resumen], st.session_state["admin_degradados"][1])
         except Exception as e:
             error_supabase("No se pudo generar el resumen estadístico.", e)
 
@@ -3481,7 +3410,7 @@ if st.session_state.base_id is not None:
             celular = st.text_input("Celular (9 a 15 d\u00edgitos)")
             cargo_sel = st.selectbox("Cargo o condici\u00f3n", CARGOS)
             cargo_otro = st.text_input("Especifica el cargo") if cargo_sel == "Otro" else ""
-            foto = st.file_uploader("Fotograf\u00eda del integrante (opcional)", type=["jpg", "jpeg", "png"])
+            foto = st.file_uploader("Subir fotograf\u00eda tama\u00f1o carnet, fondo blanco", type=["jpg", "jpeg", "png"])
             consentimiento = st.checkbox("Confirmo que la persona fue informada y autoriz\u00f3 el registro de sus datos y fotograf\u00eda, "
                 "y que su nombre, cargo y fotograf\u00eda se mostrar\u00e1n al escanear su credencial.")
             guardar = st.form_submit_button("Guardar integrante")
@@ -3495,6 +3424,8 @@ if st.session_state.base_id is not None:
                 st.warning("Celular inv\u00e1lido.")
             elif cargo_sel == "Otro" and not cargo_final:
                 st.warning("Especifica el cargo.")
+            elif foto is None:
+                st.warning("Sube la fotograf\u00eda tama\u00f1o carnet, fondo blanco.")
             elif not consentimiento:
                 st.warning("Confirma que existe autorizaci\u00f3n.")
             elif foto is not None and foto.size > MAX_IMG_BYTES:
