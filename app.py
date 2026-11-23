@@ -5,6 +5,7 @@ import secrets
 import hmac
 import base64
 import re
+import random
 import io
 import os
 import uuid
@@ -27,13 +28,87 @@ import requests
 import qrcode
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+# =====================================================================
+# PALETAS DE COLOR  (elige una con PALETA_POR_DEFECTO o desde el menú
+# lateral: "🎨 Apariencia"). Para crear la tuya basta añadir una línea:
+#   "Mi color": ("#COLOR_PRINCIPAL", "#COLOR_DEL_TEXTO"),
+# =====================================================================
+PALETAS = {
+    "Turquesa":      ("#00B8AE", "#0B2A2E"),
+    "Azul real":     ("#0A55FF", "#0A1A3F"),
+    "Azul cielo":    ("#0096F0", "#06263D"),
+    "Índigo":        ("#4338FF", "#14123F"),
+    "Violeta":       ("#8A2BFF", "#1F0F45"),
+    "Rosa frambuesa": ("#F0126E", "#3A0A22"),
+    "Rojo intenso":  ("#E01B2F", "#3A0C12"),
+    "Naranja":       ("#F25C00", "#3A1A06"),
+    "Dorado":        ("#E39A00", "#2E2100"),
+    "Verde esmeralda": ("#00A862", "#07301E"),
+    "Verde lima":    ("#5DB300", "#1B2E05"),
+}
+PALETA_POR_DEFECTO = "Turquesa"
+
+
+def _mezcla(hex1, hex2, t):
+    """Mezcla hex1 con hex2; t=0 -> hex1, t=1 -> hex2."""
+    a = [int(hex1[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(hex2[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#%02X%02X%02X" % tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
+
+def _tokens_paleta(nombre):
+    acc, txt = PALETAS.get(nombre, PALETAS[PALETA_POR_DEFECTO])
+    W, K = "#FFFFFF", "#000000"
+    return {
+        "#20B8B0": acc,
+        "#159E9A": _mezcla(acc, K, .15),
+        "#117C7A": _mezcla(acc, K, .35),
+        "#087E79": _mezcla(acc, K, .45),
+        "#42D6CD": _mezcla(acc, W, .25),
+        "#38D3C9": _mezcla(acc, W, .18),
+        "#E0F7F5": _mezcla(acc, W, .84),
+        "#E6F8F6": _mezcla(acc, W, .90),
+        "#C9EFEC": _mezcla(acc, W, .70),
+        "#A8DFDB": _mezcla(acc, W, .45),
+        "#BCE9E5": _mezcla(acc, W, .58),
+        "#B9E3E0": _mezcla(acc, W, .50),
+        "#F1F7F8": _mezcla(acc, W, .965),
+        "#F7FAFB": _mezcla(acc, W, .985),
+        "#EAF5F5": _mezcla(acc, W, .93),
+        "#E5F5F5": _mezcla(acc, W, .86),
+        "#DCEFEF": _mezcla(acc, W, .74),
+        "#D5E5E7": _mezcla(acc, W, .68),
+        "#E5EFF0": _mezcla(acc, W, .84),
+        "#263B40": txt,
+        "#657D82": _mezcla(txt, W, .30),
+        "#526D72": _mezcla(txt, W, .12),
+        "#66858A": _mezcla(txt, W, .32),
+        "#8FA3A7": _mezcla(txt, W, .50),
+    }
+
+
+def _aplicar_paleta(css, nombre):
+    """Cambia los colores turquesa del CSS por los de la paleta elegida."""
+    tok = _tokens_paleta(nombre)
+    acc = tok["#20B8B0"]
+    rgb = ",".join(str(int(acc[i:i + 2], 16)) for i in (1, 3, 5))
+    css = css.replace("rgba(32,184,176,", "rgba(" + rgb + ",")
+    return re.sub(r"#[0-9A-Fa-f]{6}",
+                  lambda m: tok.get(m.group(0).upper(), m.group(0)), css)
+
+
+_PALETA = st.session_state.get("paleta_ui", PALETA_POR_DEFECTO)
+if _PALETA not in PALETAS:
+    _PALETA = PALETA_POR_DEFECTO
+_T = _tokens_paleta(_PALETA)
+
 try:
     for _k, _v in {
         "theme.base": "light",
-        "theme.primaryColor": "#20B8B0",
-        "theme.backgroundColor": "#F1F7F8",
-        "theme.secondaryBackgroundColor": "#EAF5F5",
-        "theme.textColor": "#263B40",
+        "theme.primaryColor": _T["#20B8B0"],
+        "theme.backgroundColor": _T["#F1F7F8"],
+        "theme.secondaryBackgroundColor": _T["#EAF5F5"],
+        "theme.textColor": _T["#263B40"],
     }.items():
         st._config.set_option(_k, _v)
 except Exception:
@@ -46,7 +121,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
+st.markdown(_aplicar_paleta("""
 <style>
 /* =========================================================
    TURQUESA EJECUTIVO
@@ -593,7 +668,7 @@ input::placeholder, textarea::placeholder { color: #8FA3A7 !important; -webkit-t
 [data-testid="stExpander"] summary, [data-testid="stExpander"] * { color: #263B40 !important; }
 [data-testid="stCheckbox"] label, [data-testid="stRadio"] label { color: #263B40 !important; }
 </style>
-""", unsafe_allow_html=True)
+""", _PALETA), unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------
 # CONFIGURACION Y CONEXION
@@ -997,6 +1072,17 @@ def botones_lista(base, miembros, clave):
  
 logger = logging.getLogger("registro_bases")
  
+# Colores vivos para las barras de las gráficas. Cada vez que inicias sesión
+# se eligen dos distintos al azar (una para cada gráfica).
+COLORES_BARRAS = ["#0A55FF", "#00A862", "#F25C00", "#8A2BFF", "#F0126E",
+                  "#00B8AE", "#E39A00", "#E01B2F", "#4338FF", "#5DB300"]
+
+def colores_barras():
+    # La clave empieza con "admin_", así limpiar_sesion() la borra al cerrar sesión.
+    if "admin_colores_barras" not in st.session_state:
+        st.session_state["admin_colores_barras"] = random.sample(COLORES_BARRAS, 2)
+    return st.session_state["admin_colores_barras"]
+
 def grafica_supabase(titulo, items, color="#3ecf8e"):
     """Grafica de barras horizontales con el nombre COMPLETO de cada base.
     items = [(etiqueta, valor), ...]. Se muestra ordenada de mayor a menor."""
@@ -2348,6 +2434,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     st.warning("La memoria está alta. Evita generar muchas credenciales juntas o reinicia la app.")
             st.button("Actualizar", key="memoria_actualizar", use_container_width=True)
 
+        with st.expander("🎨 Apariencia"):
+            st.selectbox("Paleta de colores", list(PALETAS.keys()),
+                         index=list(PALETAS.keys()).index(_PALETA),
+                         key="paleta_ui")
+
         st.markdown("---")
         if st.button("Cerrar sesión", use_container_width=True, key="sidebar_logout_admin"):
             limpiar_sesion()
@@ -2444,11 +2535,11 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown("### Militantes por base")
                 grafica_supabase("Militantes por base",
-                                 [(x["Base"], x["Militantes"]) for x in datos_resumen], "#f59e0b")
+                                 [(x["Base"], x["Militantes"]) for x in datos_resumen], colores_barras()[0])
 
                 st.markdown("### Total de integrantes por base")
                 grafica_supabase("Total de integrantes por base",
-                                 [(x["Base"], x["Total de integrantes"]) for x in datos_resumen], "#3ecf8e")
+                                 [(x["Base"], x["Total de integrantes"]) for x in datos_resumen], colores_barras()[1])
         except Exception as e:
             error_supabase("No se pudo generar el resumen estadístico.", e)
 
