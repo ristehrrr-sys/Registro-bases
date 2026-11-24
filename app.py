@@ -1152,6 +1152,25 @@ def foto_revision_disponible():
         _REVISION_OK = False
     return _REVISION_OK
  
+def rechazar_foto(integrante, motivo):
+    # Marca la foto como rechazada y la elimina del almacenamiento para liberar espacio.
+    # Los datos de la persona (nombres, DNI, etc.) se conservan.
+    supabase.table("integrantes_base").update(
+        {"foto_url": None, "foto_estado": "rechazada", "foto_motivo": motivo, "foto_aviso": None}
+    ).eq("id", integrante["id"]).execute()
+    borrar_fotos([integrante.get("foto_url")])
+
+def estado_fotos_base(base_id):
+    # {id_integrante: (estado, motivo)} de una base. Vacío si aún no existen las columnas de revisión.
+    if not foto_revision_disponible():
+        return {}
+    try:
+        filas = traer_todo(lambda: supabase.table("integrantes_base")
+                           .select("id,foto_estado,foto_motivo").eq("base_id", base_id))
+        return {f["id"]: (f.get("foto_estado") or "pendiente", f.get("foto_motivo")) for f in filas}
+    except Exception:
+        return {}
+
 def ext_imagen(archivo) -> str:
     return "png" if getattr(archivo, "type", "") == "image/png" else "jpg"
  
@@ -2761,7 +2780,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 mapa_bases = {b["id"]: b["nombre_base"] for b in cargar_bases()}
                 todas = traer_todo(lambda: supabase.table("integrantes_base")
                                    .select("id,base_id,nombres,apellidos,dni,foto_url,foto_estado,foto_aviso,foto_motivo")
-                                   .not_.is_("foto_url", "null").order("id"))
+                                   .or_("foto_url.not.is.null,foto_estado.eq.rechazada").order("id"))
                 for f in todas:
                     f["foto_estado"] = f.get("foto_estado") or "pendiente"
                 c1, c2, c3 = st.columns(3)
@@ -2780,6 +2799,22 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                          if (clave is None or f["foto_estado"] == clave)
                          and (bsel == "Todas las bases" or mapa_bases.get(f["base_id"]) == bsel)
                          and (not solo_aviso or f.get("foto_aviso"))]
+                msg_rech = st.session_state.pop("msg_fotos_rech", None)
+                if msg_rech:
+                    st.success(msg_rech)
+                if est == "Rechazadas" and lista:
+                    n_rech = st.session_state.get("fotos_rech_n", 0)
+                    st.markdown("**Rechazados para depurar** (por si alguien solo hizo una broma)")
+                    opc_rech = {f'{nombre_completo(f)} · DNI {f.get("dni", "")} · {mapa_bases.get(f["base_id"], "")}': f for f in lista}
+                    elegidos = st.multiselect("Elegir a quienes eliminar", list(opc_rech.keys()), key=f"fotos_rech_sel_{n_rech}")
+                    if elegidos:
+                        st.warning(f"Se eliminarán {len(elegidos)} persona(s) con todos sus datos y, si es el caso, su credencial. No se puede deshacer.")
+                        ok_rech = st.checkbox("Confirmo que quiero eliminar a estas personas", key=f"fotos_rech_ok_{n_rech}")
+                        if st.button("Eliminar seleccionados", key=f"fotos_rech_btn_{n_rech}", disabled=not ok_rech):
+                            eliminar_integrantes([opc_rech[k] for k in elegidos])
+                            st.session_state["fotos_rech_n"] = n_rech + 1
+                            st.session_state["msg_fotos_rech"] = f"Se eliminaron {len(elegidos)} persona(s)."
+                            st.rerun()
                 por_pag = 12
                 paginas = max(1, -(-len(lista) // por_pag))
                 pag = st.number_input("Página", min_value=1, max_value=paginas, value=1, step=1, key="fotos_pag") if paginas > 1 else 1
@@ -2791,7 +2826,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                     for col, f in zip(cols, trozo[i:i + 2]):
                         with col:
                             with st.container(border=True):
-                                st.image(f["foto_url"], use_container_width=True)
+                                if f.get("foto_url"):
+                                    st.image(f["foto_url"], use_container_width=True)
+                                else:
+                                    st.caption("Foto eliminada. Falta que suban una nueva.")
                                 st.markdown(f"**{_html.escape(nombre_completo(f))}**")
                                 st.caption(f"{mapa_bases.get(f['base_id'], '')} · DNI {f.get('dni', '')}")
                                 if f.get("foto_aviso"):
@@ -2804,12 +2842,27 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                         supabase.table("integrantes_base").update({"foto_estado": "aprobada", "foto_motivo": None}).eq("id", f["id"]).execute()
                                         st.rerun()
                                     if b2.button("Rechazar", key=f"fr_{f['id']}", use_container_width=True):
-                                        supabase.table("integrantes_base").update({"foto_estado": "rechazada", "foto_motivo": motivo}).eq("id", f["id"]).execute()
+                                        st.session_state[f"fotos_conf_{f['id']}"] = True
                                         st.rerun()
+                                    if st.session_state.get(f"fotos_conf_{f['id']}"):
+                                        st.warning("Se eliminará esta fotografía para liberar espacio. Los datos de la persona se conservan.")
+                                        k1, k2 = st.columns(2)
+                                        if k1.button("Sí, rechazar", key=f"frs_{f['id']}", type="primary", use_container_width=True):
+                                            rechazar_foto(f, motivo)
+                                            st.session_state.pop(f"fotos_conf_{f['id']}", None)
+                                            st.rerun()
+                                        if k2.button("Cancelar", key=f"frc_{f['id']}", use_container_width=True):
+                                            st.session_state.pop(f"fotos_conf_{f['id']}", None)
+                                            st.rerun()
                                 else:
-                                    if st.button("Volver a pendiente", key=f"fp_{f['id']}", use_container_width=True):
-                                        supabase.table("integrantes_base").update({"foto_estado": "pendiente", "foto_motivo": None}).eq("id", f["id"]).execute()
-                                        st.rerun()
+                                    if f["foto_estado"] == "rechazada" and f.get("foto_url"):
+                                        if st.button("Eliminar foto ahora", key=f"fe_{f['id']}", use_container_width=True):
+                                            rechazar_foto(f, f.get("foto_motivo") or "Foto rechazada")
+                                            st.rerun()
+                                    if f.get("foto_url"):
+                                        if st.button("Volver a pendiente", key=f"fp_{f['id']}", use_container_width=True):
+                                            supabase.table("integrantes_base").update({"foto_estado": "pendiente", "foto_motivo": None}).eq("id", f["id"]).execute()
+                                            st.rerun()
             except Exception as e:
                 error_supabase("No se pudo cargar la revisión de fotos.", e)
 
@@ -3497,6 +3550,21 @@ if st.session_state.base_id is not None:
         filas = cargar_integrantes(base_id)
         st.metric("Total de integrantes", len(filas))
         if filas:
+            _estados = estado_fotos_base(base_id)
+            _sin_foto = [f for f in filas if not f.get("foto_url")]
+            _en_revision = [f for f in filas if f.get("foto_url") and _estados.get(f["id"], ("", None))[0] == "pendiente"]
+            if _sin_foto:
+                _lineas = []
+                for f in _sin_foto:
+                    _est, _mot = _estados.get(f["id"], ("", None))
+                    _det = f"Subir fotografía: {_mot or 'Foto inadecuada o no es un rostro'}" if _est == "rechazada" else "Falta subir la fotografía tamaño carnet"
+                    _lineas.append(f"<li>{_html.escape(nombre_completo(f))} · DNI {_html.escape(str(f.get('dni', '')))} — {_html.escape(_det)}</li>")
+                st.markdown('<div style="color:var(--red);font-weight:600">Falta subir fotografía tamaño carnet (' + str(len(_sin_foto))
+                            + '):<ul style="margin:.3rem 0 0 1.2rem;font-weight:500">' + "".join(_lineas) + '</ul></div>',
+                            unsafe_allow_html=True)
+                st.caption("Para subirla: abre «Editar integrante», elige a la persona y usa «Subir fotografía tamaño carnet».")
+            if _en_revision:
+                st.info(f"{len(_en_revision)} fotografía(s) en revisión del administrador.")
             st.dataframe(dataframe_integrantes(filas), use_container_width=True, hide_index=True)
             botones_lista({"id": base_id, "nombre_base": st.session_state.base_nombre,
                            "provincia": st.session_state.base_provincia,
@@ -3512,6 +3580,12 @@ if st.session_state.base_id is not None:
                 mid = m["id"]
                 if m.get("foto_url"):
                     st.image(m["foto_url"], width=110)
+                _est_m, _mot_m = _estados.get(mid, ("", None))
+                if not m.get("foto_url"):
+                    _txt_m = f"Subir fotografía: {_mot_m or 'Foto inadecuada o no es un rostro'}" if _est_m == "rechazada" else "Falta subir la fotografía tamaño carnet"
+                    st.markdown('<div style="color:var(--red);font-weight:600">' + _html.escape(_txt_m) + '</div>', unsafe_allow_html=True)
+                elif _est_m == "pendiente":
+                    st.caption("Foto en revisión del administrador.")
                 st.caption("El DNI no se puede cambiar aqu\u00ed. Si hay un error en el DNI, avisa al administrador.")
                 cargo_act = m.get("cargo") or ""
                 with st.form(f"base_form_ed_{mid}"):
@@ -3522,8 +3596,8 @@ if st.session_state.base_id is not None:
                                           index=CARGOS.index(cargo_act) if cargo_act in CARGOS else len(CARGOS) - 1)
                     e_otro = st.text_input("Si elegiste \u00abOtro\u00bb, especifica el cargo", key=f"base_co_{mid}",
                                            value="" if cargo_act in CARGOS else cargo_act)
-                    e_foto = st.file_uploader("Cambiar fotograf\u00eda (opcional)", type=["jpg", "jpeg", "png"],
-                                              key=f"base_ef_{mid}")
+                    e_foto = st.file_uploader("Cambiar fotograf\u00eda (opcional)" if m.get("foto_url") else "Subir fotograf\u00eda tama\u00f1o carnet",
+                                              type=["jpg", "jpeg", "png"], key=f"base_ef_{mid}")
                     guardar_ed = st.form_submit_button("Guardar cambios")
                 if guardar_ed:
                     cargo_final = e_otro.strip() if e_csel == "Otro" else e_csel
