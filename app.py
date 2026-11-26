@@ -1833,6 +1833,27 @@ DISENOS_PREDEFINIDOS = {
             ],
         },
     },
+    # Carnet de afiliacion DIGITAL: foto a la izquierda, QR abajo a la derecha (con espacio libre al lado),
+    # N\u00ba arriba a la izquierda y los datos en este orden: nombres, apellidos, DNI, cargo, base/comando,
+    # provincia, distrito.
+    "Carnet de afiliaci\u00f3n (Juntos por el Per\u00fa)": {
+        "version": 1,
+        "foto": {"x": 0.04, "y": 0.465, "w": 0.2762, "h": 0.4891},
+        "qr": {"x": 0.819, "y": 0.6975, "w": 0.1524, "h": 0.2416},
+        "texto": {
+            "color": "#111111", "tamano": 0.034, "negrita": True, "margen": 0.004,
+            "campos": [
+                {"campo": "numero", "x": 0.1295, "y": 0.4046, "ancho": 0.181, "tamano": 0.06, "color": "#E85A1E"},
+                {"campo": "nombres", "x": 0.4854, "y": 0.4514, "ancho": 0.467},
+                {"campo": "apellidos", "x": 0.4985, "y": 0.5299, "ancho": 0.4539},
+                {"campo": "dni", "x": 0.4452, "y": 0.6084, "ancho": 0.5072},
+                {"campo": "cargo", "x": 0.4537, "y": 0.6869, "ancho": 0.3139},
+                {"campo": "base", "x": 0.525, "y": 0.7654, "ancho": 0.2426},
+                {"campo": "provincia", "x": 0.4985, "y": 0.8439, "ancho": 0.2691},
+                {"campo": "distrito", "x": 0.4799, "y": 0.9224, "ancho": 0.2877},
+            ],
+        },
+    },
 }
  
 # Nombres cortos SOLO para imprimir en la credencial (opcional). Clave: nombre de la base en
@@ -2017,6 +2038,8 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
         "nombre_completo": nombre_completo(integrante), "dni": integrante.get("dni"),
         "cargo": integrante.get("cargo") or "Sin cargo", "base": nombre_base_credencial(integrante.get("nombre_base")),
         "provincia": integrante.get("provincia"), "distrito": integrante.get("distrito"),
+        # N\u00ba correlativo: el id del integrante con 6 cifras (si el id no es un numero, queda vacio).
+        "numero": (str(integrante.get("id")).zfill(6) if str(integrante.get("id") or "").isdigit() else ""),
     }
     ajuste = t.get("ajuste", "compacto")  # "compacto", "cortar", "envolver" o "reducir"
     desplazamiento = {}  # px que bajan los campos de una misma columna tras un texto largo
@@ -2026,7 +2049,9 @@ def aplicar_diseno(lienzo, integrante, qr_url, diseno, foto_img=None):
             columna = round(float(c["x"]), 3)
             y_base = min(int(c["y"] * h) - margen + desplazamiento.get(columna, 0), h - 4)
             extra = escribir_en_linea(draw, texto, int(c["x"] * w), y_base,
-                                      max(10, int(c["ancho"] * w)), tam, color,
+                                      max(10, int(c["ancho"] * w)),
+                                      (max(10, int(float(c["tamano"]) * h)) if c.get("tamano") else tam),
+                                      c.get("color", color),
                                       t.get("negrita", True), ajuste)
             desplazamiento[columna] = desplazamiento.get(columna, 0) + extra
     return lienzo.convert("RGB")
@@ -2145,6 +2170,21 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
         elif diseno and diseno.get("modo") == "auto":
             diseno = None
  
+    # Reverso ya terminado (con texto y firma): si el nombre de la plantilla lleva [REVERSO FIJO]
+    # se usa tal cual y solo se escribe la fecha (la del registro) sobre las rayas de "Puno, __ de __".
+    if lado == "posterior" and "[REVERSO FIJO]" in str(plantilla.get("nombre") or "").upper():
+        try:
+            f_reg = date.fromisoformat(str(integrante.get("fecha_registro") or "")[:10])
+        except Exception:
+            f_reg = date.today()
+        meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+                 "septiembre", "octubre", "noviembre", "diciembre"]
+        fuente_f = cargar_fuente(max(10, int(0.034 * h)), True)
+        y_f = int(467 / 662.3 * h)
+        for texto_f, cx_f in ((str(f_reg.day), 560 / 1050), (meses[f_reg.month - 1], 745 / 1050)):
+            draw.text((int(cx_f * w), y_f), texto_f, fill="#111111", font=fuente_f, anchor="ms")
+        return lienzo.convert("RGB")
+
     if lado == "posterior":
         draw.text((int(w*.06), int(h*.18)), "VERIFICACI\u00d3N DE CREDENCIAL",
                   fill="#17324D", font=cargar_fuente(max(18, int(h*.045)), True))
