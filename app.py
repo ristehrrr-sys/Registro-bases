@@ -799,7 +799,7 @@ def _liberar_lote():
     # Los QR no se afectan: viven en la base de datos, no en estos archivos.
     archivos = st.session_state.get("lote_archivos")
     if archivos:
-        for k in ("pdfs_ind", "zip", "pdf", "a4"):
+        for k in ("pdfs_ind", "zip", "zip_jpg", "pdf", "a4"):
             archivos.pop(k, None)
         archivos["liberado"] = True
     gc.collect()
@@ -1136,6 +1136,16 @@ def memoria_servidor():
             continue
     return datos
 
+def _texto_foto_pendiente(estado, motivo):
+    # Mensaje amable para quien falta o debe cambiar su foto (sin reproches).
+    consejo = "de frente, con buena luz y fondo claro"
+    if estado == "rechazada":
+        m = (motivo or "").strip()
+        if not m or m == "Foto inadecuada o no es un rostro":
+            return f"Necesita una foto nueva: {consejo}"
+        return f"Necesita una foto nueva ({m[0].lower() + m[1:]})"
+    return "A\u00fan no tiene su fotograf\u00eda tama\u00f1o carnet"
+
 def aviso_de_rostro(datos_jpeg):
     return "Sin rostro detectado" if rostro_detectado(datos_jpeg) is False else ""
 
@@ -1238,7 +1248,7 @@ def credencial_de_dni(dni):
     # Busca con la clave nueva (HMAC) y con la anterior, para no duplicar credenciales ya emitidas.
     claves = list({clave_persona(dni), clave_persona_legacy(dni)})
     filas = (supabase.table("credenciales")
-             .select("id,integrante_id,estado,emitida_en,token_hash").in_("persona_key", claves)
+             .select("id,integrante_id,estado,emitida_en,token_hash,descargas").in_("persona_key", claves)
              .limit(1).execute().data or [])
     return filas[0] if filas else None
  
@@ -1481,16 +1491,32 @@ def guardar_credenciales_lote(resultados, plantilla_id):
     for i in range(0, len(nuevos), 100):
         supabase.table("credenciales").insert(nuevos[i:i + 100]).execute()
  
-def zip_credenciales(resultados):
+PDF_IMAGENES_JPG = True   # True: los PDF llevan las imagenes en JPG (mucho mas livianos). False: PNG sin perdida.
+PDF_CALIDAD_JPG = 90
+
+def _img_pdf(png_bytes):
+    # Imagen que se incrusta en los PDF: JPG calidad 90 (o el PNG original si se desactiva arriba).
+    return _png_a_jpg(png_bytes, PDF_CALIDAD_JPG) if PDF_IMAGENES_JPG else png_bytes
+
+def _png_a_jpg(png_bytes, calidad=90):
+    # Convierte una imagen PNG a JPG (sin transparencia). Calidad 90 y sin reducir el color del texto.
+    b = io.BytesIO()
+    Image.open(io.BytesIO(png_bytes)).convert("RGB").save(b, format="JPEG", quality=calidad,
+                                                          optimize=True, subsampling=0)
+    return b.getvalue()
+
+def zip_credenciales(resultados, jpg=False, calidad_jpg=90):
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:   # los PNG ya vienen comprimidos
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:   # PNG y JPG ya vienen comprimidos
         for i, r in enumerate(resultados, start=1):
             p = r["persona"]
             nombre = (f'{i:03d}_{nombre_archivo_seguro(p.get("apellidos", ""))}_'
                       f'{nombre_archivo_seguro(p.get("nombres", ""))}_{nombre_archivo_seguro(p["dni"])}')
-            z.writestr(nombre + "_frente.png", r["frente_png"])
+            ext = "jpg" if jpg else "png"
+            conv = (lambda b: _png_a_jpg(b, calidad_jpg)) if jpg else (lambda b: b)
+            z.writestr(f"{nombre}_frente.{ext}", conv(r["frente_png"]))
             if r.get("reverso_png"):
-                z.writestr(nombre + "_reverso.png", r["reverso_png"])
+                z.writestr(f"{nombre}_reverso.{ext}", conv(r["reverso_png"]))
     return buf.getvalue()
  
 def es_secretario_general(cargo):
@@ -1628,7 +1654,7 @@ def zip_pdfs_individuales(resultados, nombres_bases=None, contactos=None):
                 pw = (85.6 if w_im >= h_im else 54) * mm
                 ph = pw * h_im / w_im
                 c.setPageSize((pw, ph))
-                c.drawImage(ImageReader(io.BytesIO(png)), 0, 0, width=pw, height=ph)
+                c.drawImage(ImageReader(io.BytesIO(_img_pdf(png))), 0, 0, width=pw, height=ph)
                 c.showPage()
             c.save()
             nombre = (f'{nombre_archivo_seguro(p.get("apellidos", ""))}_'
@@ -1665,7 +1691,7 @@ def pdf_credenciales(resultados, hoja_a4=False):
                 pw = (85.6 if w_im >= h_im else 54) * mm
                 ph = pw * h_im / w_im
                 c.setPageSize((pw, ph))
-                c.drawImage(ImageReader(io.BytesIO(png)), 0, 0, width=pw, height=ph)
+                c.drawImage(ImageReader(io.BytesIO(_img_pdf(png))), 0, 0, width=pw, height=ph)
                 c.showPage()
         c.save()
         return buf.getvalue()
@@ -1688,7 +1714,7 @@ def pdf_credenciales(resultados, hoja_a4=False):
                     col = cols - 1 - col
                 x = x0 + col * (cw + gap)
                 y = y_top - (fila + 1) * ch - fila * gap
-                c.drawImage(ImageReader(io.BytesIO(png)), x, y, width=cw, height=ch,
+                c.drawImage(ImageReader(io.BytesIO(_img_pdf(png))), x, y, width=cw, height=ch,
                             preserveAspectRatio=True, anchor="c")
                 c.setStrokeColorRGB(0.7, 0.7, 0.7)
                 c.setLineWidth(0.3)
@@ -2100,18 +2126,21 @@ DISENO_JSON = "Personalizado (avanzado)"
  
 def editor_diseno(p):
     actual = cargar_diseno(p["id"])
-    opciones = [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()) + [DISENO_JSON]
+    opciones = list(DISENOS_VISIBLES)
     if actual is None:
-        indice = opciones.index(DISENO_POR_DEFECTO)
+        _def = DISENO_AFILIACION if es_plantilla_afiliacion(p) else DISENO_POR_DEFECTO
+        indice = opciones.index(_def)
         st.caption("Esta plantilla a\u00fan no tiene una distribuci\u00f3n guardada: se est\u00e1 usando "
-                   f"\u00ab{DISENO_POR_DEFECTO}\u00bb. Pulsa \u00abGuardar distribuci\u00f3n\u00bb para fijarla.")
-    elif actual.get("modo") == "auto":
-        indice = 0
+                   f"\u00ab{_def}\u00bb. Pulsa \u00abGuardar distribuci\u00f3n\u00bb para fijarla.")
     else:
-        indice = len(opciones) - 1
-        for i, nombre in enumerate(DISENOS_PREDEFINIDOS, start=1):
+        indice = 0
+        coincide = False
+        for i, nombre in enumerate(opciones):
             if DISENOS_PREDEFINIDOS[nombre] == actual:
-                indice = i
+                indice, coincide = i, True
+        if not coincide:
+            st.caption("Esta plantilla tiene guardada otra distribuci\u00f3n (antigua o autom\u00e1tica). Se conserva tal cual; "
+                       "si eliges una de la lista y pulsas \u00abGuardar distribuci\u00f3n\u00bb, se reemplaza.")
     sel = st.selectbox("Distribuci\u00f3n", opciones, index=indice, key=f"dis_sel_{p['id']}")
     if sel == DISENO_AUTO:
         diseno = {"modo": "auto"}
@@ -2145,6 +2174,16 @@ def editor_diseno(p):
         except Exception as e:
             error_supabase("No se pudo guardar la distribuci\u00f3n.", e)
  
+DISENO_AFILIACION = "Carnet de afiliaci\u00f3n (Juntos por el Per\u00fa)"
+# Distribuciones que se ofrecen en pantalla. Las demas siguen en el codigo, pero ya no se muestran.
+DISENOS_VISIBLES = [DISENO_AFILIACION, DISENO_POR_DEFECTO]
+
+def es_plantilla_afiliacion(plantilla):
+    # Las plantillas cuyo nombre lleva "afiliacion" (o [REVERSO FIJO]) usan la distribucion del carnet
+    # de afiliacion cuando no tienen otra guardada, y su reverso se respeta tal cual.
+    nombre = str((plantilla or {}).get("nombre") or "").upper()
+    return "[REVERSO FIJO]" in nombre or "AFILIACI" in nombre
+
 def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=None):
     path = plantilla.get("frontal_path") if lado == "frontal" else plantilla.get("posterior_path")
     if path:
@@ -2166,13 +2205,13 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
     if lado == "frontal":
         diseno = plantilla["diseno"] if "diseno" in plantilla else cargar_diseno(plantilla.get("id"))
         if diseno is None and plantilla.get("frontal_path"):
-            diseno = DISENOS_PREDEFINIDOS[DISENO_POR_DEFECTO]
+            diseno = DISENOS_PREDEFINIDOS[DISENO_AFILIACION if es_plantilla_afiliacion(plantilla) else DISENO_POR_DEFECTO]
         elif diseno and diseno.get("modo") == "auto":
             diseno = None
  
     # Reverso ya terminado (con texto y firma): si el nombre de la plantilla lleva [REVERSO FIJO]
     # se usa tal cual y solo se escribe la fecha (la del registro) sobre las rayas de "Puno, __ de __".
-    if lado == "posterior" and "[REVERSO FIJO]" in str(plantilla.get("nombre") or "").upper():
+    if lado == "posterior" and es_plantilla_afiliacion(plantilla):
         try:
             f_reg = date.fromisoformat(str(integrante.get("fecha_registro") or "")[:10])
         except Exception:
@@ -2183,6 +2222,20 @@ def componer_credencial(integrante, plantilla, qr_url, lado="frontal", foto_img=
         y_f = int(467 / 662.3 * h)
         for texto_f, cx_f in ((str(f_reg.day), 560 / 1050), (meses[f_reg.month - 1], 745 / 1050)):
             draw.text((int(cx_f * w), y_f), texto_f, fill="#111111", font=fuente_f, anchor="ms")
+        # Firma del secretario general: si junto a este archivo existe firma_secretario.png (de preferencia
+        # con fondo transparente), se pega sobre la raya de la firma. Sin ese archivo no se escribe nada.
+        try:
+            ruta_firma = os.path.join(os.path.dirname(os.path.abspath(__file__)), "firma_secretario.png")
+            if os.path.exists(ruta_firma):
+                firma_img = Image.open(ruta_firma).convert("RGBA")
+                max_w, max_h = int(0.286 * w), int(0.1057 * h)
+                esc = min(max_w / firma_img.width, max_h / firma_img.height)
+                firma_img = firma_img.resize((max(1, int(firma_img.width * esc)), max(1, int(firma_img.height * esc))),
+                                             Image.LANCZOS)
+                pos = (int(0.5333 * w) - firma_img.width // 2, int(0.8395 * h) - firma_img.height)
+                lienzo.paste(firma_img, pos, firma_img)
+        except Exception:
+            pass
         return lienzo.convert("RGB")
 
     if lado == "posterior":
@@ -2271,6 +2324,338 @@ def credencial_publica_png(plantilla_id, persona_json, bases_json, url_qr):
                  distrito=principal.get("distrito") or "")
     return _png(componer_credencial(datos, filas[0], url_qr, "frontal"))
 
+# ---------------------------------------------------------------------
+# Pagina publica "Descarga tu carnet": un solo enlace para todo el grupo (APP_PUBLIC_URL/?carnet=1).
+# Cada persona escribe su DNI y los ultimos 4 digitos de su celular registrado; solo si coinciden
+# se le entrega SU carnet (el mismo que ya genero el administrador, con el mismo QR).
+# ---------------------------------------------------------------------
+MAX_FALLOS_DNI = 5            # fallos permitidos por DNI en la ventana de abajo
+VENTANA_FALLOS_SEG = 3600     # 1 hora
+MAX_FALLOS_SESION = 2         # intentos fallidos por visita (sesion del navegador)
+MAX_FALLOS_GLOBAL = 300       # fallos de todo el mundo en 10 minutos (freno contra adivinar en masa)
+
+@st.cache_resource
+def _registro_fallos_carnet():
+    return {"dni": {}, "global": []}
+
+def _ultimos_digitos(celular, n=4):
+    d = re.sub(r"\D", "", str(celular or ""))
+    return d[-n:] if len(d) >= 9 else ""     # sin celular valido registrado no se puede verificar
+
+def _limpiar_fallos(reg, ahora):
+    reg["global"] = [t for t in reg["global"] if ahora - t < 600]
+    for k in list(reg["dni"].keys()):
+        reg["dni"][k] = [t for t in reg["dni"][k] if ahora - t < VENTANA_FALLOS_SEG]
+        if not reg["dni"][k]:
+            del reg["dni"][k]
+
+def _bloqueado_carnet(dni):
+    reg = _registro_fallos_carnet(); ahora = time.time(); _limpiar_fallos(reg, ahora)
+    if st.session_state.get("carnet_fallos", 0) >= MAX_FALLOS_SESION:
+        return True
+    if len(reg["dni"].get(dni, [])) >= MAX_FALLOS_DNI:
+        return True
+    return len(reg["global"]) >= MAX_FALLOS_GLOBAL
+
+def _anotar_fallo_carnet(dni):
+    reg = _registro_fallos_carnet(); ahora = time.time()
+    reg["dni"].setdefault(dni, []).append(ahora)
+    reg["global"].append(ahora)
+    st.session_state["carnet_fallos"] = st.session_state.get("carnet_fallos", 0) + 1
+    time.sleep(1.0)   # frena a quien prueba datos uno tras otro
+
+def _pdf_de_carnet(frente_png, reverso_png):
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+    pdf = io.BytesIO()
+    img = Image.open(io.BytesIO(frente_png)).convert("RGB")
+    pw = (85.6 if img.width >= img.height else 54) * 2.83465
+    c = canvas.Canvas(pdf, pagesize=(pw, pw * img.height / img.width))
+    c.drawImage(ImageReader(io.BytesIO(_img_pdf(frente_png))), 0, 0, width=pw, height=pw * img.height / img.width)
+    c.showPage()
+    if reverso_png:
+        img2 = Image.open(io.BytesIO(reverso_png)).convert("RGB")
+        ph2 = pw * img2.height / img2.width
+        c.setPageSize((pw, ph2))
+        c.drawImage(ImageReader(io.BytesIO(_img_pdf(reverso_png))), 0, 0, width=pw, height=ph2)
+        c.showPage()
+    c.save()
+    return pdf.getvalue()
+
+def _armar_carnet_propio(dni):
+    """Devuelve (estado, datos): 'datos_incorrectos' (no hay carnet para ese DNI) o 'ok' con las imagenes."""
+    claves = list({clave_persona(dni), clave_persona_legacy(dni)})
+    cred = (supabase.table("credenciales")
+            .select("id,integrante_id,estado,plantilla_id,token_hash,descargas")
+            .in_("persona_key", claves).limit(1).execute().data or [])
+    regs = (supabase.table("integrantes_base").select("*").eq("dni", dni).execute().data or [])
+    # Solo se pide el DNI. Si el DNI no esta registrado o aun no tiene carnet, la respuesta es la misma
+    # (asi nadie puede averiguar quien esta registrado probando numeros).
+    if not regs or not cred or cred[0].get("estado") != "vigente" or not token_reproducible(dni, cred[0]):
+        return "datos_incorrectos", None
+    cred = cred[0]
+    if int(cred.get("descargas") or 0) >= MAX_DESCARGAS:
+        return "entregado", None
+    persona = next((r for r in regs if r.get("id") == cred["integrante_id"]), regs[0])
+    plantilla = (supabase.table("plantillas_credenciales")
+                 .select("id,nombre,frontal_path,posterior_path")
+                 .eq("id", cred["plantilla_id"]).limit(1).execute().data or [])
+    if not plantilla or not APP_PUBLIC_URL:
+        return "datos_incorrectos", None
+    plantilla = plantilla[0]
+    token = token_credencial(dni, cred["id"])
+    url_qr = f"{APP_PUBLIC_URL}/?verificar={quote(token)}"
+    info = datos_bases_por_dni(dni)
+    principal = next((b for b in info if b["id"] == persona.get("base_id")), info[0] if info else {})
+    datos = dict(persona)
+    datos["nombre_base"] = ", ".join(b["nombre_base"] for b in info)
+    datos["provincia"] = principal.get("provincia") or ""
+    datos["distrito"] = principal.get("distrito") or ""
+    foto = precargar_fotos([persona["foto_url"]]).get(persona["foto_url"]) if persona.get("foto_url") else None
+    frente = _png(componer_credencial(datos, plantilla, url_qr, "frontal", foto_img=foto))
+    reverso = (_png(componer_credencial(datos, plantilla, url_qr, "posterior", foto_img=foto))
+               if plantilla.get("posterior_path") else None)
+    nombre = (f'{nombre_archivo_seguro(persona.get("apellidos", ""))}_'
+              f'{nombre_archivo_seguro(persona.get("nombres", ""))}_{nombre_archivo_seguro(dni)}')
+    return "ok", {"frente": frente, "reverso": reverso, "nombre": nombre,
+                  "cred_id": cred["id"], "descargas": int(cred.get("descargas") or 0)}
+
+
+# ---------------------------------------------------------------------
+# Link personal de descarga: /?descargar=<id_credencial>.<codigo>
+# El codigo se calcula con la clave secreta (HMAC), distinto del codigo del QR, asi que quien
+# solo escanee el QR del carnet no puede usarlo para bajar el PDF. No se guarda nada nuevo en la BD.
+# ---------------------------------------------------------------------
+def token_descarga(dni, cred_id) -> str:
+    mac = hmac.new(_clave_hmac(), f"descarga:{str(dni).strip()}:{cred_id}".encode("utf-8"),
+                   hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(mac).decode("ascii").rstrip("=")
+
+def enlace_descarga(dni, cred_id) -> str:
+    if not APP_PUBLIC_URL:
+        return ""
+    return f"{APP_PUBLIC_URL}/?descargar={quote(str(cred_id))}.{token_descarga(dni, cred_id)}"
+
+def mensaje_carnet_whatsapp(integrante, enlace):
+    primer_nombre = (str(integrante.get("nombres") or "").split() or [""])[0].title()
+    saludo = f"Hola {primer_nombre}" if primer_nombre else "Hola"
+    return f"{saludo}, para descargar tu carnet entra a este enlace y escribe tu DNI: {enlace}"
+
+MAX_DESCARGAS = 2   # veces que cada persona puede descargar su carnet. Al llegar a este numero queda ENTREGADO y todo se bloquea.
+
+def registro_entregas(base_id=None):
+    """Una fila por integrante con su estado de entrega. Se alimenta sola: cada descarga actualiza la credencial."""
+    from datetime import timedelta
+    bases = {b["id"]: b for b in cargar_bases()}
+    personas = cargar_integrantes(base_id)
+    creds = traer_todo(lambda: supabase.table("credenciales")
+                       .select("id,persona_key,estado,descargas,ultima_descarga,fallos_enlace").order("id"))
+    por_clave = {c["persona_key"]: c for c in creds}
+    filas = []
+    for p_ in personas:
+        d = str(p_.get("dni", "")).strip()
+        c = por_clave.get(clave_persona(d)) or por_clave.get(clave_persona_legacy(d))
+        n = int((c or {}).get("descargas") or 0)
+        if not c:
+            estado = "Sin carnet"
+        elif c.get("estado") != "vigente":
+            estado = "Revocado"
+        elif n >= 1:
+            estado = "Entregado"
+        elif int(c.get("fallos_enlace") or 0) >= MAX_FALLOS_ENLACE:
+            estado = "Bloqueado"
+        else:
+            estado = "Pendiente"
+        fecha = ""
+        raw = (c or {}).get("ultima_descarga")
+        if raw:
+            try:
+                dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+                fecha = dt.astimezone(timezone(timedelta(hours=-5))).strftime("%d/%m/%Y %H:%M")
+            except Exception:
+                fecha = str(raw)[:16]
+        b = bases.get(p_.get("base_id"), {})
+        filas.append({"Base": b.get("nombre_base", ""), "Provincia": b.get("provincia") or "",
+                      "Distrito": b.get("distrito") or "", "Apellidos": p_.get("apellidos", ""),
+                      "Nombres": p_.get("nombres", ""), "DNI": d, "Cargo": p_.get("cargo") or "",
+                      "Estado": estado, "Descargas": f"{n} de {MAX_DESCARGAS}" if c else "",
+                      "Última descarga": fecha})
+    return filas
+
+def envios_whatsapp_base(base_id):
+    """Integrantes de una base con carnet vigente: links y enlaces de WhatsApp listos para enviar."""
+    personas = cargar_integrantes(base_id)
+    creds = traer_todo(lambda: supabase.table("credenciales")
+                       .select("id,persona_key,estado,token_hash,descargas,fallos_enlace,habilitaciones").order("id"))
+    por_clave = {c["persona_key"]: c for c in creds}
+    salida = []
+    for p_ in personas:
+        d = str(p_.get("dni", "")).strip()
+        c = por_clave.get(clave_persona(d)) or por_clave.get(clave_persona_legacy(d))
+        if not c or c.get("estado") != "vigente" or not token_reproducible(d, c):
+            continue
+        enlace = enlace_descarga(d, c["id"])
+        if not enlace:
+            continue
+        general = f"{APP_PUBLIC_URL}/?carnet=1"
+        salida.append({"cred_id": c["id"], "habilitaciones": int(c.get("habilitaciones") or 0), "nombre": nombre_completo(p_), "entregado": int(c.get("descargas") or 0) >= 1,
+                       "cerrado": int(c.get("descargas") or 0) >= MAX_DESCARGAS,
+                       "bloqueado": int(c.get("fallos_enlace") or 0) >= MAX_FALLOS_ENLACE,
+                       "wa": enlace_whatsapp(p_.get("celular"), mensaje_carnet_whatsapp(p_, enlace)),
+                       "wa_g": enlace_whatsapp(p_.get("celular"), mensaje_carnet_whatsapp(p_, general))})
+    return salida
+
+MAX_HABILITACIONES_BASE = 1   # veces que el responsable de base puede habilitar de nuevo a una misma persona
+MAX_FALLOS_ENLACE = 2   # DNI incorrectos permitidos en un link personal; luego el link se bloquea (queda guardado)
+
+def _verificar_enlace(valor, dni):
+    """Devuelve (estado, intentos_restantes). estado: 'ok', 'incorrecto' o 'bloqueado'.
+    Un link personal genuino se bloquea de forma permanente tras MAX_FALLOS_ENLACE DNI incorrectos."""
+    try:
+        cred_id, _, tok = str(valor).partition(".")
+        if not cred_id or not tok or len(valor) > 200:
+            return "incorrecto", None
+        cred = (supabase.table("credenciales").select("id,integrante_id,estado,fallos_enlace,descargas")
+                .eq("id", cred_id).limit(1).execute().data or [])
+        if not cred or cred[0].get("estado") != "vigente":
+            return "incorrecto", None
+        fila = (supabase.table("integrantes_base").select("dni")
+                .eq("id", cred[0]["integrante_id"]).limit(1).execute().data or [])
+        if not fila:
+            return "incorrecto", None
+        dni_reg = str(fila[0]["dni"]).strip()
+        if not hmac.compare_digest(token_descarga(dni_reg, cred_id), tok):
+            return "incorrecto", None            # link inventado o alterado: no hay nada que bloquear
+        if int(cred[0].get("descargas") or 0) >= MAX_DESCARGAS:
+            return "entregado", 0
+        fallos = int(cred[0].get("fallos_enlace") or 0)
+        if fallos >= MAX_FALLOS_ENLACE:
+            return "bloqueado", 0
+        if not hmac.compare_digest(dni_reg, str(dni)):
+            fallos += 1
+            supabase.table("credenciales").update({"fallos_enlace": fallos}).eq("id", cred_id).execute()
+            return ("bloqueado", 0) if fallos >= MAX_FALLOS_ENLACE else ("incorrecto", MAX_FALLOS_ENLACE - fallos)
+        if fallos:
+            supabase.table("credenciales").update({"fallos_enlace": 0}).eq("id", cred_id).execute()
+        return "ok", None
+    except Exception:
+        logger.warning("No se pudo verificar el link personal")
+        return "incorrecto", None
+
+def _habilitar_desde_base(cred_id):
+    """Habilitacion hecha por el responsable de base: maximo MAX_HABILITACIONES_BASE por persona."""
+    try:
+        act = (supabase.table("credenciales").select("habilitaciones").eq("id", cred_id).limit(1).execute().data or [])
+        h = int((act[0].get("habilitaciones") if act else 0) or 0)
+        if not act or h >= MAX_HABILITACIONES_BASE:
+            return False
+        r = (supabase.table("credenciales")
+             .update({"descargas": 0, "fallos_enlace": 0, "habilitaciones": h + 1})
+             .eq("id", cred_id).eq("habilitaciones", h).execute())
+        return bool(r.data)
+    except Exception:
+        logger.exception("No se pudo habilitar de nuevo")
+        return False
+
+def _contar_descarga(cred_id, clave):
+    # Se ejecuta al tocar el boton de descarga: suma 1 en la base de datos y en la sesion.
+    try:
+        act = (supabase.table("credenciales").select("descargas").eq("id", cred_id).limit(1).execute().data or [])
+        n = int((act[0].get("descargas") if act else 0) or 0)
+        supabase.table("credenciales").update(
+            {"descargas": n + 1, "ultima_descarga": datetime.now(timezone.utc).isoformat()}
+        ).eq("id", cred_id).execute()
+    except Exception:
+        logger.exception("No se pudo registrar la descarga del carnet")
+    d = st.session_state.get(clave)
+    if d is not None:
+        d["descargas"] = int(d.get("descargas") or 0) + 1
+
+def _mostrar_entrega(clave):
+    datos = st.session_state.get(clave)
+    if not datos:
+        return
+    usadas = int(datos.get("descargas") or 0)
+    if usadas >= MAX_DESCARGAS:
+        st.session_state.pop(clave, None)
+        st.success("\u2705 \u00a1Listo! Tu carnet ya fue entregado. Si necesitas ayuda con \u00e9l, "
+                   "escr\u00edbele a tu responsable. \U0001f60a")
+        return
+    restantes = MAX_DESCARGAS - usadas
+    st.success("Este es tu carnet. Desc\u00e1rgalo y gu\u00e1rdalo en tu celular.")
+    st.image(datos["frente"], caption="Frente", use_container_width=True)
+    if datos.get("reverso"):
+        st.image(datos["reverso"], caption="Reverso", use_container_width=True)
+    try:
+        st.download_button("Descargar mi carnet (PDF)", _pdf_de_carnet(datos["frente"], datos.get("reverso")),
+                           f'carnet_{datos["nombre"]}.pdf', "application/pdf", key=f"{clave}_pdf",
+                           on_click=_contar_descarga, args=(datos["cred_id"], clave))
+        st.caption("\u00a1Listo! Gu\u00e1rdalo en tu celular apenas lo bajes. \U0001f60a")
+    except Exception:
+        logger.warning("PDF no disponible en la descarga del carnet")
+        st.error("No pudimos preparar el PDF. Int\u00e9ntalo de nuevo en unos minutos.")
+
+def _pagina_carnet(clave, valor_enlace=None):
+    st.subheader("\U0001faaa Descarga tu carnet")
+    st.write("Escribe tu **DNI** para ver y descargar tu carnet. Tienes **2 intentos**.")
+    with st.form(f"form_{clave}"):
+        dni_in = st.text_input("DNI", max_chars=8, placeholder="8 d\u00edgitos")
+        enviar = st.form_submit_button("Ver mi carnet")
+    if enviar:
+        dni = re.sub(r"\D", "", dni_in or "")
+        st.session_state.pop(clave, None)
+        if _bloqueado_carnet(dni):
+            st.warning("Ya usaste tus 2 intentos. Comun\u00edcate con tu responsable para recibir tu carnet.")
+        elif len(dni) != 8:
+            st.error("Revisa que tu DNI tenga 8 d\u00edgitos.")
+        else:
+            estado, datos, quedan_enlace = "error", None, None
+            try:
+                with st.spinner("Preparando tu carnet..."):
+                    if valor_enlace is not None:
+                        ve, quedan_enlace = _verificar_enlace(valor_enlace, dni)
+                        if ve == "entregado":
+                            estado = "entregado"
+                        elif ve == "bloqueado":
+                            estado = "enlace_bloqueado"
+                        elif ve != "ok":
+                            estado = "datos_incorrectos"
+                        else:
+                            estado, datos = _armar_carnet_propio(dni)
+                    else:
+                        estado, datos = _armar_carnet_propio(dni)
+            except Exception:
+                logger.exception("Descarga de carnet fall\u00f3")
+                st.error("No pudimos preparar tu carnet en este momento. Int\u00e9ntalo de nuevo en unos minutos.")
+            if estado == "datos_incorrectos":
+                _anotar_fallo_carnet(dni)
+                quedan = max(0, MAX_FALLOS_SESION - st.session_state.get("carnet_fallos", 0))
+                if valor_enlace is not None and quedan_enlace is not None:
+                    quedan = min(quedan, quedan_enlace)
+                que = "El enlace o el DNI no coinciden" if valor_enlace is not None else "No encontramos un carnet con ese DNI"
+                if quedan:
+                    st.error(f"{que}. Revisa el n\u00famero. Te queda {quedan} intento.")
+                else:
+                    st.error(f"{que} y ya usaste tus 2 intentos. Comun\u00edcate con tu responsable.")
+            elif estado == "enlace_bloqueado":
+                st.error("\U0001f512 Este enlace se bloque\u00f3 por demasiados intentos con DNI incorrecto. "
+                         "Comun\u00edcate con tu responsable para que lo habilite.")
+            elif estado == "entregado":
+                st.success("\u2705 \u00a1Listo! Tu carnet ya fue entregado. Si necesitas ayuda con \u00e9l, "
+                           "escr\u00edbele a tu responsable. \U0001f60a")
+            elif estado == "ok":
+                st.session_state[clave] = datos
+    _mostrar_entrega(clave)
+    st.caption("Tus datos solo se usan para entregarte tu carnet.")
+
+def pagina_mi_carnet():
+    _pagina_carnet("mi_carnet")
+
+_valor_descarga = st.query_params.get("descargar")
+if _valor_descarga:
+    _pagina_carnet("carnet_directo", str(_valor_descarga))
+    st.stop()
+
 token_qr = st.query_params.get("verificar")
 if token_qr:
     st.subheader("Verificaci\u00f3n de credencial")
@@ -2318,6 +2703,10 @@ if token_qr:
                            "Por privacidad, esta consulta p\u00fablica no muestra el DNI ni el tel\u00e9fono.")
     except Exception as e:
         error_supabase("No se pudo verificar la credencial.", e)
+    st.stop()
+
+if st.query_params.get("carnet"):
+    pagina_mi_carnet()
     st.stop()
  
  
@@ -2418,7 +2807,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         sub = ""
         sub_opciones = {
             "Bases": ["Integrantes", "Crear base", "Administrar"],
-            "Credenciales": ["Una persona", "Varias personas", "Generadas"],
+            "Credenciales": ["Una persona", "Varias personas", "Generadas", "Entregas"],
         }
         if panel in sub_opciones:
             st.markdown('<div class="sidebar-section-label">Sección</div>', unsafe_allow_html=True)
@@ -2433,6 +2822,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                 "Una persona": "🪪  Una persona",
                 "Varias personas": "👥  Varias personas",
                 "Generadas": "📋  Generadas",
+                "Entregas": "📦  Entregas",
             }
             sub = st.radio(
                 "Submenú",
@@ -3192,13 +3582,13 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         pw = (85.6 if img.width >= img.height else 54) * 2.83465
                         ph = pw * img.height / img.width
                         c = canvas.Canvas(pdf, pagesize=(pw, ph))
-                        c.drawImage(ImageReader(img), 0, 0, width=pw, height=ph)
+                        c.drawImage(ImageReader(io.BytesIO(_img_pdf(st.session_state["credencial_generada"]))), 0, 0, width=pw, height=ph)
                         c.showPage()
                         if st.session_state.get("credencial_reverso"):
                             img2 = Image.open(io.BytesIO(st.session_state["credencial_reverso"])).convert("RGB")
                             ph2 = pw * img2.height / img2.width
                             c.setPageSize((pw, ph2))
-                            c.drawImage(ImageReader(img2), 0, 0, width=pw, height=ph2)
+                            c.drawImage(ImageReader(io.BytesIO(_img_pdf(st.session_state["credencial_reverso"]))), 0, 0, width=pw, height=ph2)
                             c.showPage()
                         c.save()
                         st.download_button("Descargar credencial (PDF)", pdf.getvalue(),
@@ -3215,6 +3605,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
         st.subheader("\U0001faaa Credenciales de varias personas")
         st.caption("Genera varias credenciales a la vez y desc\u00e1rgalas en ZIP o en PDF listo para imprimir.")
         f_zip = "ZIP con im\u00e1genes PNG"
+        f_zip_jpg = "ZIP con im\u00e1genes JPG (calidad 90)"
         f_pdf = "PDF (una credencial por p\u00e1gina)"
         f_a4 = "PDF A4 para imprimir (8 por hoja)"
         f_pdf_ind = "ZIP con un PDF por persona (para repartir)"
@@ -3299,7 +3690,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         lote = cola[(tanda - 1) * tam: tanda * tam]
                         extra = f", tanda {tanda} de {n_tandas}" if (modo != M_FALTAN and n_tandas > 1) else ""
                         st.write(f"Se preparar\u00e1n **{len(lote)}** credenciales ({len(cola)} en total{extra}).")
-                        formatos = st.multiselect("Formatos de descarga", [f_pdf_ind, f_zip, f_pdf, f_a4],
+                        formatos = st.multiselect("Formatos de descarga", [f_pdf_ind, f_zip, f_zip_jpg, f_pdf, f_a4],
                                                   default=[f_pdf_ind], key="lote_formatos")
                         etiqueta = "Generar" if modo == M_FALTAN else "Descargar"
                         plantilla = plantilla_activa()
@@ -3324,6 +3715,8 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                                 archivos["contactos"] = contactos_del_lote(resultados, mapa_bases, todos)
                                 if f_zip in formatos:
                                     archivos["zip"] = zip_credenciales(resultados)
+                                if f_zip_jpg in formatos:
+                                    archivos["zip_jpg"] = zip_credenciales(resultados, jpg=True, calidad_jpg=90)
                                 try:
                                     if f_pdf_ind in formatos:
                                         archivos["pdfs_ind"] = zip_pdfs_individuales(
@@ -3367,6 +3760,10 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                             d1.download_button("Descargar ZIP (PNG)", archivos["zip"],
                                                f'credenciales_{archivos["sello"]}.zip', "application/zip",
                                                key="dl_lote_zip", on_click=_liberar_lote)
+                        if archivos.get("zip_jpg"):
+                            d1.download_button("Descargar ZIP (JPG 90)", archivos["zip_jpg"],
+                                               f'credenciales_jpg_{archivos["sello"]}.zip', "application/zip",
+                                               key="dl_lote_zip_jpg", on_click=_liberar_lote)
                         if archivos.get("pdf"):
                             d2.download_button("Descargar PDF", archivos["pdf"],
                                                f'credenciales_{archivos["sello"]}.pdf', "application/pdf",
@@ -3386,6 +3783,40 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             except Exception as e:
                 error_supabase("No se pudo completar la generaci\u00f3n de varias credenciales.", e)
  
+    if panel == "Credenciales" and sub == "Entregas":
+        st.subheader("\U0001f4e6 Entrega de carnets")
+        st.caption("Se llena sola: cuando alguien descarga su carnet queda como \u00abEntregado\u00bb, con fecha y hora.")
+        try:
+            filas_e = registro_entregas()
+            if not filas_e:
+                st.info("A\u00fan no hay integrantes registrados.")
+            else:
+                df_e = pd.DataFrame(filas_e)
+                f1, f2 = st.columns(2)
+                base_e = f1.selectbox("Base", ["Todas"] + sorted(df_e["Base"].unique()), key="ent_base")
+                est_e = f2.selectbox("Estado", ["Todos", "Entregado", "Pendiente", "Bloqueado", "Sin carnet", "Revocado"], key="ent_estado")
+                df_b = df_e if base_e == "Todas" else df_e[df_e["Base"] == base_e]
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Personas", len(df_b))
+                m2.metric("Entregados", int((df_b["Estado"] == "Entregado").sum()))
+                m3.metric("Pendientes", int((df_b["Estado"] == "Pendiente").sum()))
+                m4.metric("Sin carnet", int((df_b["Estado"] == "Sin carnet").sum()))
+                res = (df_b.assign(E=df_b["Estado"].eq("Entregado"), P=df_b["Estado"].eq("Pendiente"),
+                                   S=df_b["Estado"].eq("Sin carnet"))
+                       .groupby("Base").agg(Total=("DNI", "size"), Entregados=("E", "sum"),
+                                            Pendientes=("P", "sum"), **{"Sin carnet": ("S", "sum")}).reset_index())
+                res["% entregado"] = (res["Entregados"] * 100 / res["Total"]).round(0).astype(int).astype(str) + "%"
+                st.markdown("**Resumen por base**")
+                st.dataframe(res, use_container_width=True, hide_index=True)
+                vista_e = df_b if est_e == "Todos" else df_b[df_b["Estado"] == est_e]
+                st.markdown(f"**Detalle** \u00b7 {len(vista_e)} persona(s)")
+                st.dataframe(vista_e, use_container_width=True, hide_index=True)
+                st.download_button("Descargar este registro (Excel)",
+                                   excel_bytes(vista_e, "Entregas", titulo="Registro de entrega de carnets"),
+                                   "registro_entregas.xlsx", MIME_XLSX, key="dl_entregas")
+        except Exception as e:
+            error_supabase("No se pudo cargar el registro de entregas.", e)
+
     if panel == "Credenciales" and sub == "Generadas":
         st.subheader("\U0001f4cb Credenciales generadas")
         st.caption("Todas las credenciales emitidas. Marca las que quieras eliminar; las que no marques se conservan.")
@@ -3394,7 +3825,7 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             if msg_cred:
                 st.success(msg_cred)
             creds = traer_todo(lambda: supabase.table("credenciales")
-                               .select("id,integrante_id,estado,emitida_en")
+                               .select("id,integrante_id,estado,emitida_en,token_hash,descargas,fallos_enlace,habilitaciones")
                                .order("emitida_en", desc=True).order("id"))
             if not creds:
                 st.info("A\u00fan no hay credenciales generadas.")
@@ -3418,6 +3849,9 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         "DNI": d,
                         "Base": ", ".join(bases_de_dni.get(d, [])),
                         "Estado": c.get("estado", ""),
+                        "Descargas": int(c.get("descargas") or 0),
+                        "Habilitaciones": int(c.get("habilitaciones") or 0),
+                        "Enlace": "Bloqueado" if int(c.get("fallos_enlace") or 0) >= MAX_FALLOS_ENLACE else "",
                         "Emitida": str(c.get("emitida_en", ""))[:16].replace("T", " "),
                     })
                 f1, f2 = st.columns(2)
@@ -3456,6 +3890,66 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
                         st.session_state["lote_borrado_n"] = n + 1
                         st.session_state["mostrar_msg_cred"] = f"{len(marcadas)} credenciales eliminadas."
                         st.rerun()
+                    # ---- Enviar el carnet por WhatsApp (link personal o link general; ambos piden DNI) ----
+                    mapa_c = {c["id"]: c for c in creds}
+                    envios = []
+                    for f_ in vistas:
+                        c_ = mapa_c.get(f_["ID"])
+                        i_ = mapa_i.get(c_["integrante_id"]) if c_ else None
+                        if not (c_ and i_ and c_.get("estado") == "vigente" and f_["DNI"]):
+                            continue
+                        if not token_reproducible(f_["DNI"], c_):
+                            continue
+                        enlace_d = enlace_descarga(f_["DNI"], c_["id"])
+                        if not enlace_d:
+                            continue
+                        enlace_g = f"{APP_PUBLIC_URL}/?carnet=1"
+                        envios.append({"fila": f_, "integrante": i_, "enlace": enlace_d, "enlace_g": enlace_g,
+                                       "wa": enlace_whatsapp(i_.get("celular"), mensaje_carnet_whatsapp(i_, enlace_d)),
+                                       "wa_g": enlace_whatsapp(i_.get("celular"), mensaje_carnet_whatsapp(i_, enlace_g))})
+                    with st.expander("Enviar carnet por WhatsApp (mensaje con link)"):
+                        if not APP_PUBLIC_URL:
+                            st.warning("Falta APP_PUBLIC_URL en Secrets: sin ella no se pueden crear los links.")
+                        elif not envios:
+                            st.info("No hay credenciales vigentes con link disponible en esta lista.")
+                        else:
+                            st.caption(f"En ambos casos la persona debe escribir su DNI para ver el carnet y solo puede "
+                                       f"descargarlo {MAX_DESCARGAS} vez(veces); despu\u00e9s queda como \u00abentregado\u00bb.")
+                            tipo = st.radio("\u00bfQu\u00e9 link enviar?",
+                                            ["Link personal (m\u00e1s seguro: solo sirve para esa persona)",
+                                             "Link general (el mismo para todos)"], key="lote_wa_tipo")
+                            personal = tipo.startswith("Link personal")
+                            et_env = {f'{e["fila"]["Integrante"]} \u00b7 DNI {e["fila"]["DNI"]}': e for e in envios[:300]}
+                            sel_env = st.selectbox("Persona", list(et_env.keys()), key="lote_wa_persona")
+                            e_sel = et_env[sel_env]
+                            url_wa = e_sel["wa"] if personal else e_sel["wa_g"]
+                            if url_wa:
+                                st.markdown(f"[\U0001f4ac Abrir WhatsApp con el mensaje]({url_wa})")
+                            else:
+                                st.warning("Esta persona no tiene un celular v\u00e1lido registrado.")
+                            st.code(e_sel["enlace"] if personal else e_sel["enlace_g"], language=None)
+                            usadas = e_sel["fila"].get("Descargas", 0)
+                            st.caption(f"Descargas usadas por esta persona: {usadas} de {MAX_DESCARGAS}"
+                                       + (" \u00b7 ENTREGADO" if usadas >= 1 else ""))
+                            st.caption(f"Habilitaciones hechas por el responsable de base: {e_sel['fila'].get('Habilitaciones', 0)} de {MAX_HABILITACIONES_BASE}")
+                            bloq = e_sel["fila"].get("Enlace") == "Bloqueado"
+                            if bloq:
+                                st.warning("\U0001f512 El link de esta persona est\u00e1 bloqueado por DNI incorrecto.")
+                            if (usadas > 0 or bloq) and st.button("Habilitar de nuevo (reinicia descargas y desbloquea el link)",
+                                                                  key=f"lote_wa_reset_{e_sel['fila']['ID']}"):
+                                supabase.table("credenciales").update({"descargas": 0, "fallos_enlace": 0}).eq("id", e_sel["fila"]["ID"]).execute()
+                                st.session_state["mostrar_msg_cred"] = "Esa persona ya puede intentar de nuevo."
+                                st.rerun()
+                            st.download_button(
+                                "Descargar lista con links y enlaces de WhatsApp (Excel)",
+                                excel_bytes(pd.DataFrame([{
+                                    "Integrante": e["fila"]["Integrante"], "DNI": e["fila"]["DNI"], "Base": e["fila"]["Base"],
+                                    "Celular": e["integrante"].get("celular", ""), "Descargas": e["fila"].get("Descargas", 0),
+                                    "Link personal": e["enlace"], "WhatsApp (link personal)": e["wa"],
+                                    "WhatsApp (link general)": e["wa_g"]} for e in envios]),
+                                    "Links", titulo="Links de carnet"),
+                                "links_carnet_whatsapp.xlsx", MIME_XLSX, key="dl_links_carnet")
+                            st.caption("Trata este Excel como confidencial.")
                     st.download_button("Descargar esta lista (Excel)",
                                        excel_bytes(pd.DataFrame(vistas).drop(columns=["ID"]), "Credenciales",
                                                    titulo="Credenciales generadas"),
@@ -3471,10 +3965,9 @@ if st.session_state.admin_autenticado and st.session_state.es_admin:
             frontal = st.file_uploader("Imagen frontal (PNG o JPG)", type=["png", "jpg", "jpeg"])
             posterior = st.file_uploader("Imagen posterior (opcional)", type=["png", "jpg", "jpeg"])
             distribucion = st.selectbox("Distribuci\u00f3n de datos, foto y QR",
-                                        [DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys()),
-                                        index=([DISENO_AUTO] + list(DISENOS_PREDEFINIDOS.keys())).index("Credencial Tonconi (QR cuadrado 146)"),
-                                        help="Usa \u00abAutom\u00e1tico\u00bb si tu dise\u00f1o es distinto al de Puno. "
-                                             "Despu\u00e9s podr\u00e1s ajustarlo con vista previa.")
+                                        list(DISENOS_VISIBLES), index=0,
+                                        help="Para el carnet amarillo elige \u00abCarnet de afiliaci\u00f3n\u00bb. "
+                                             "Despu\u00e9s podr\u00e1s revisarlo con vista previa.")
             activar_al_guardar = st.checkbox("Activar esta plantilla al guardar", value=True)
             guardar_plantilla_btn = st.form_submit_button("Guardar plantilla")
         if guardar_plantilla_btn:
@@ -3594,15 +4087,15 @@ if st.session_state.base_id is not None:
             _sin_foto = [f for f in filas if not f.get("foto_url")]
             _en_revision = [f for f in filas if f.get("foto_url") and _estados.get(f["id"], ("", None))[0] == "pendiente"]
             if _sin_foto:
-                _lineas = []
-                for f in _sin_foto:
-                    _est, _mot = _estados.get(f["id"], ("", None))
-                    _det = f"Subir fotografía: {_mot or 'Foto inadecuada o no es un rostro'}" if _est == "rechazada" else "Falta subir la fotografía tamaño carnet"
-                    _lineas.append(f"<li>{_html.escape(nombre_completo(f))} · DNI {_html.escape(str(f.get('dni', '')))} — {_html.escape(_det)}</li>")
-                st.markdown('<div style="color:var(--red);font-weight:600">Falta subir fotografía tamaño carnet (' + str(len(_sin_foto))
-                            + '):<ul style="margin:.3rem 0 0 1.2rem;font-weight:500">' + "".join(_lineas) + '</ul></div>',
-                            unsafe_allow_html=True)
-                st.caption("Para subirla: abre «Editar integrante», elige a la persona y usa «Subir fotografía tamaño carnet».")
+                st.info(f"\U0001f4f7 {len(_sin_foto)} persona(s) a\u00fan necesitan su fotograf\u00eda tama\u00f1o carnet. "
+                        "Puedes subirla cuando la tengas.")
+                with st.expander("Ver qui\u00e9nes faltan"):
+                    _lineas = []
+                    for f in _sin_foto:
+                        _est, _mot = _estados.get(f["id"], ("", None))
+                        _lineas.append(f"<li>{_html.escape(nombre_completo(f))} \u2014 {_html.escape(_texto_foto_pendiente(_est, _mot))}</li>")
+                    st.markdown('<ul style="margin:.3rem 0 0 1.2rem">' + "".join(_lineas) + '</ul>', unsafe_allow_html=True)
+                    st.caption("Para subirla: abre \u00abEditar integrante\u00bb, elige a la persona y usa \u00abSubir fotograf\u00eda tama\u00f1o carnet\u00bb.")
             if _en_revision:
                 st.info(f"{len(_en_revision)} fotografía(s) en revisión del administrador.")
             st.dataframe(dataframe_integrantes(filas), use_container_width=True, hide_index=True)
@@ -3610,6 +4103,56 @@ if st.session_state.base_id is not None:
                            "provincia": st.session_state.base_provincia,
                            "distrito": st.session_state.base_distrito,
                            "direccion": st.session_state.get("base_direccion", "")}, filas, "mi_base")
+            with st.expander("Entrega de carnets de tu base"):
+                try:
+                    reg_e = registro_entregas(base_id)
+                    ent_n = sum(1 for r in reg_e if r["Estado"] == "Entregado")
+                    st.write(f"**{ent_n}** de {len(reg_e)} ya descargaron su carnet.")
+                    st.dataframe(pd.DataFrame(reg_e)[["Apellidos", "Nombres", "Cargo", "Estado", "Descargas", "Última descarga"]],
+                                 use_container_width=True, hide_index=True)
+                    st.markdown("**Enviar el carnet por WhatsApp**")
+                    envios_b = envios_whatsapp_base(base_id)
+                    if not APP_PUBLIC_URL:
+                        st.warning("Falta configurar la direcci\u00f3n p\u00fablica de la app. Avisa al administrador.")
+                    elif not envios_b:
+                        st.info("A\u00fan no hay carnets generados para tu base. Cuando el administrador los genere, "
+                                "aqu\u00ed aparecer\u00e1 el enlace para enviarlos.")
+                    else:
+                        st.caption("Toca \u00abEnviar por WhatsApp\u00bb: se abre el chat de la persona con el mensaje ya escrito. "
+                                   "Solo pulsa Enviar. Ella deber\u00e1 escribir su DNI para ver su carnet.")
+                        msg_hab = st.session_state.pop("msg_hab_base", None)
+                        if msg_hab:
+                            st.success(msg_hab)
+                        tipo_b = st.radio("Link a enviar", ["Link personal (recomendado)", "Link general"],
+                                          horizontal=True, key="base_wa_tipo")
+                        ver_todos = st.checkbox("Mostrar tambi\u00e9n a quienes ya descargaron", key="base_wa_todos")
+                        lista_b = [e for e in envios_b if ver_todos or not e["entregado"]]
+                        if not lista_b:
+                            st.success("Todos los de tu base con carnet ya lo descargaron.")
+                        for e in lista_b[:200]:
+                            url_b = e["wa"] if tipo_b.startswith("Link personal") else e["wa_g"]
+                            col_a, col_b = st.columns([4, 2])
+                            if e["entregado"]:
+                                col_a.markdown(f"\u2705 {_html.escape(e['nombre'])} \u00b7 Entregado" + (" (cerrado)" if e["cerrado"] else ""))
+                            elif e["bloqueado"]:
+                                col_a.markdown(f"\U0001f512 {_html.escape(e['nombre'])} \u00b7 Link bloqueado por DNI incorrecto")
+                            else:
+                                enlace_txt = f"[Enviar por WhatsApp]({url_b})" if url_b else "sin celular v\u00e1lido"
+                                col_a.markdown(f"{_html.escape(e['nombre'])} \u00b7 {enlace_txt}")
+                            if e["cerrado"] or e["bloqueado"]:
+                                if e["habilitaciones"] >= MAX_HABILITACIONES_BASE:
+                                    col_b.caption("Ya se habilit\u00f3 1 vez. Avisa al administrador.")
+                                elif col_b.button("Habilitar de nuevo", key=f"base_hab_{e['cred_id']}"):
+                                    if _habilitar_desde_base(e["cred_id"]):
+                                        st.session_state["msg_hab_base"] = (f"{e['nombre']} ya puede intentar de nuevo. "
+                                                                            "Esta fue la \u00fanica habilitaci\u00f3n permitida.")
+                                    else:
+                                        st.session_state["msg_hab_base"] = "No se pudo habilitar: ya se us\u00f3 la habilitaci\u00f3n de esta persona."
+                                    st.rerun()
+                        if len(lista_b) > 200:
+                            st.caption("Se muestran las primeras 200.")
+                except Exception as e:
+                    error_supabase("No se pudo cargar la entrega de carnets.", e)
             with st.expander("Editar integrante", expanded=False):
                 msg_ed = st.session_state.pop("msg_edit_base", None)
                 if msg_ed:
@@ -3622,8 +4165,7 @@ if st.session_state.base_id is not None:
                     st.image(m["foto_url"], width=110)
                 _est_m, _mot_m = _estados.get(mid, ("", None))
                 if not m.get("foto_url"):
-                    _txt_m = f"Subir fotografía: {_mot_m or 'Foto inadecuada o no es un rostro'}" if _est_m == "rechazada" else "Falta subir la fotografía tamaño carnet"
-                    st.markdown('<div style="color:var(--red);font-weight:600">' + _html.escape(_txt_m) + '</div>', unsafe_allow_html=True)
+                    st.info(_texto_foto_pendiente(_est_m, _mot_m))
                 elif _est_m == "pendiente":
                     st.caption("Foto en revisión del administrador.")
                 st.caption("El DNI no se puede cambiar aqu\u00ed. Si hay un error en el DNI, avisa al administrador.")
