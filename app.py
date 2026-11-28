@@ -730,6 +730,36 @@ def token_credencial(dni, cred_id) -> str:
                    hashlib.sha256).digest()
     return base64.urlsafe_b64encode(mac).decode("ascii").rstrip("=")
  
+SESION_BASE_MINUTOS = 30   # cuanto dura la sesion del responsable de base al refrescar la pagina
+
+def _firma_sesion_base(base_id, exp, password_hash) -> str:
+    # La firma depende de la clave secreta y de la contrasena guardada: si cambian la contrasena, el token deja de valer.
+    msg = f"sesionbase:{base_id}:{exp}:{hash_texto(str(password_hash))}"
+    mac = hmac.new(_clave_hmac(), msg.encode("utf-8"), hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(mac).decode("ascii").rstrip("=")
+
+def crear_token_sesion_base(base_id, password_hash) -> str:
+    exp = int(time.time()) + SESION_BASE_MINUTOS * 60
+    return f"{base_id}.{exp}.{_firma_sesion_base(base_id, exp, password_hash)}"
+
+def restaurar_sesion_base(token):
+    """Devuelve la fila de la base si el token es valido y no vencio; si no, None."""
+    try:
+        if len(token) > 300:
+            return None
+        base_id, exp, firma = str(token).split(".", 2)
+        if int(exp) < time.time():
+            return None
+        r = (supabase.table("bases_campana")
+             .select("id,nombre_base,provincia,distrito,direccion,password_hash")
+             .eq("id", base_id).limit(1).execute().data or [])
+        if not r:
+            return None
+        esperada = _firma_sesion_base(r[0]["id"], exp, r[0].get("password_hash", ""))
+        return r[0] if hmac.compare_digest(esperada, firma) else None
+    except Exception:
+        return None
+
 def token_reproducible(dni, cred) -> bool:
     # True si la credencial se emitio con este sistema (su huella coincide con el codigo calculado).
     try:
@@ -815,6 +845,11 @@ def limpiar_sesion():
     st.session_state.base_direccion = ""
     st.session_state.admin_autenticado = False
     st.session_state.es_admin = False
+    try:
+        if "s" in st.query_params:
+            del st.query_params["s"]
+    except Exception:
+        pass
  
 for k, v in {
     "base_id": None, "base_nombre": "", "base_provincia": "",
@@ -2714,6 +2749,22 @@ if st.query_params.get("carnet"):
 # ACCESO
 # ---------------------------------------------------------------------
 if st.session_state.base_id is None and not st.session_state.admin_autenticado:
+    _tok_s = st.query_params.get("s")
+    if _tok_s:
+        _fila_b = restaurar_sesion_base(str(_tok_s))
+        if _fila_b:
+            st.session_state.base_id = _fila_b["id"]
+            st.session_state.base_nombre = _fila_b["nombre_base"]
+            st.session_state.base_provincia = _fila_b.get("provincia") or ""
+            st.session_state.base_distrito = _fila_b.get("distrito") or ""
+            st.session_state.base_direccion = _fila_b.get("direccion") or ""
+        else:
+            try:
+                del st.query_params["s"]
+            except Exception:
+                pass
+
+if st.session_state.base_id is None and not st.session_state.admin_autenticado:
     st.subheader("Acceso al sistema")
     modo = st.radio("Tipo de acceso", ["Responsable de base", "Administrador"], horizontal=True)
     if modo == "Responsable de base":
@@ -2739,6 +2790,7 @@ if st.session_state.base_id is None and not st.session_state.admin_autenticado:
                     st.session_state.base_provincia = b.get("provincia") or ""
                     st.session_state.base_distrito = b.get("distrito") or ""
                     st.session_state.base_direccion = b.get("direccion") or ""
+                    st.query_params["s"] = crear_token_sesion_base(b["id"], b.get("password_hash", ""))
                     st.rerun()
                 else:
                     registrar_fallo(clave_rl)
@@ -4123,14 +4175,12 @@ if st.session_state.base_id is not None:
                         msg_hab = st.session_state.pop("msg_hab_base", None)
                         if msg_hab:
                             st.success(msg_hab)
-                        tipo_b = st.radio("Link a enviar", ["Link personal (recomendado)", "Link general"],
-                                          horizontal=True, key="base_wa_tipo")
                         ver_todos = st.checkbox("Mostrar tambi\u00e9n a quienes ya descargaron", key="base_wa_todos")
                         lista_b = [e for e in envios_b if ver_todos or not e["entregado"]]
                         if not lista_b:
                             st.success("Todos los de tu base con carnet ya lo descargaron.")
                         for e in lista_b[:200]:
-                            url_b = e["wa"] if tipo_b.startswith("Link personal") else e["wa_g"]
+                            url_b = e["wa"]
                             col_a, col_b = st.columns([4, 2])
                             if e["entregado"]:
                                 col_a.markdown(f"\u2705 {_html.escape(e['nombre'])} \u00b7 Entregado" + (" (cerrado)" if e["cerrado"] else ""))
